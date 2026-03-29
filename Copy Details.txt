@@ -1,14 +1,13 @@
-This copy is taken after implementing the Phase 4: Reward Plane, Learning & Monitoring.
+This copy is taken after implementing the PHASE 5: Final Validation — Prove FSBS Works.
+In this Phase the architecture was changed a little bit. Removed the Gossip protocol and implemented a local persistence method saving the model locally in every 60 second
 
-4.13 — Phase 4 Checkpoint ✅
+4.13 — Phase 5 Checkpoint ✅
 Confirm all of the following:
 
- docker compose ps shows 16 containers running (including reward-service)
- curl http://localhost:8081/health returns {"status": "ok"}
- curl http://localhost:8081/metrics returns JSON with rewards_received > 0
- docker compose logs reward-service shows reward cycles with sent X rewards
- Sidecar logs show rewards= increasing and eventually confident= > 0
- Dashboard script shows LinUCB percentage > 0% (after 3-5 minutes)
- curl http://localhost:8081/arms shows arms with confident: true
- All 44 tests pass
- Jaeger UI still shows traces from Phase 1 services
+ Anomaly injector ran successfully (~5 minutes of mixed traffic)
+ Benchmark shows sidecar round-trip latency numbers
+ Validation report generated with FSBS vs Random comparison
+ Error capture rate: FSBS = 100%, Random ≈ 50%
+ Volume reduction: ~50% fewer spans to Jaeger
+ Report saved to validation/validation_report.txt
+ All 44 tests still pass

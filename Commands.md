@@ -16,3 +16,6 @@ docker stats --no-stream
 
 # Re-launch after stopping
 docker compose up -d
+
+# Show volume details
+docker volume inspect fsbs-platform_fsbs-checkpoint-data

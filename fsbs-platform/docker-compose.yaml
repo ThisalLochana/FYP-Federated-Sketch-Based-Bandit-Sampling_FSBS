@@ -43,7 +43,7 @@ services:
   # ============================================================
   # FSBS SIDECAR — the intelligent sampling engine          ← NEW
   # ============================================================
-
+  
   fsbs-sidecar:                                              # ← NEW SERVICE
     build:
       context: ./sidecar
@@ -60,9 +60,13 @@ services:
       FSBS_CONFIDENCE_THRESHOLD: "10"
       FSBS_METRICS_INTERVAL: "10"
       FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
     ports:
       - "4320:4317"     # host:4320 for debugging
       - "8081:8081"                                            # ← ADD
+    volumes:
+      - fsbs-checkpoint-data:/data/checkpoints
     depends_on:
       - otel-collector
     mem_limit: 256m
@@ -278,3 +282,7 @@ services:
       - jaeger
       - fsbs-sidecar
     mem_limit: 128m
+
+volumes:
+  fsbs-checkpoint-data:
+    driver: local

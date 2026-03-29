@@ -9,6 +9,9 @@ Run with:
 import numpy as np
 import pytest
 import time
+import tempfile
+import os
+import shutil
 
 from fsbs.count_min_sketch import CountMinSketch
 from fsbs.feature_extractor import FeatureExtractor, FeatureVector
@@ -753,4 +756,255 @@ class TestPhase4RewardIntegration:
         assert metrics['rewards_received'] == 2
         assert metrics['avg_reward'] == pytest.approx(0.7, abs=0.01)
 
-        sampler.shutdown()        
+        sampler.shutdown()
+
+class TestCheckpointManager:
+    """Tests for the local checkpoint crash recovery system."""
+
+    def _make_temp_dir(self):
+        """Create a temporary directory for checkpoint files."""
+        return tempfile.mkdtemp(prefix='fsbs_test_ckpt_')
+
+    def test_save_creates_file(self):
+        """Saving a checkpoint should create a file on disk."""
+        ckpt_dir = self._make_temp_dir()
+        try:
+            from fsbs.checkpoint import CheckpointManager
+            mgr = CheckpointManager(checkpoint_dir=ckpt_dir)
+
+            sketch = CountMinSketch()
+            bandit = LinUCBBandit()
+            thompson = ThompsonSampler()
+
+            result = mgr.save(sketch, bandit, thompson)
+            assert result is True
+            assert os.path.exists(mgr.filepath)
+            assert mgr.saves_completed == 1
+
+            # File should be ~48KB
+            size = os.path.getsize(mgr.filepath)
+            assert 40_000 < size < 60_000, f"Unexpected size: {size}"
+        finally:
+            shutil.rmtree(ckpt_dir)
+
+    def test_restore_from_empty_dir(self):
+        """Restoring with no checkpoint file should return False."""
+        ckpt_dir = self._make_temp_dir()
+        try:
+            from fsbs.checkpoint import CheckpointManager
+            mgr = CheckpointManager(checkpoint_dir=ckpt_dir)
+
+            sketch = CountMinSketch()
+            bandit = LinUCBBandit()
+            thompson = ThompsonSampler()
+
+            result = mgr.restore(sketch, bandit, thompson)
+            assert result is False
+            assert mgr.restore_success is False
+        finally:
+            shutil.rmtree(ckpt_dir)
+
+    def test_save_and_restore_preserves_sketch(self):
+        """Sketch counters should survive save→restore cycle."""
+        ckpt_dir = self._make_temp_dir()
+        try:
+            from fsbs.checkpoint import CheckpointManager
+            mgr = CheckpointManager(checkpoint_dir=ckpt_dir)
+
+            # Create and populate sketch
+            sketch = CountMinSketch()
+            sketch.update(42, count=500)
+            sketch.update(99, count=200)
+            original_42 = sketch.estimate(42)
+            original_99 = sketch.estimate(99)
+
+            bandit = LinUCBBandit()
+            thompson = ThompsonSampler()
+
+            # Save
+            mgr.save(sketch, bandit, thompson)
+
+            # Create fresh components
+            new_sketch = CountMinSketch()
+            new_bandit = LinUCBBandit()
+            new_thompson = ThompsonSampler()
+
+            assert new_sketch.estimate(42) == 0  # fresh = empty
+
+            # Restore
+            result = mgr.restore(new_sketch, new_bandit, new_thompson)
+            assert result is True
+            assert new_sketch.estimate(42) == original_42
+            assert new_sketch.estimate(99) == original_99
+        finally:
+            shutil.rmtree(ckpt_dir)
+
+    def test_save_and_restore_preserves_linucb(self):
+        """LinUCB arm state should survive save→restore cycle."""
+        ckpt_dir = self._make_temp_dir()
+        try:
+            from fsbs.checkpoint import CheckpointManager
+            mgr = CheckpointManager(checkpoint_dir=ckpt_dir)
+
+            sketch = CountMinSketch()
+            bandit = LinUCBBandit(confidence_threshold=5)
+            thompson = ThompsonSampler()
+
+            # Train arm 7 with 20 observations
+            x = np.array([0.5, 1.0, 0.1, 0.8], dtype=np.float32)
+            for _ in range(20):
+                bandit.update(7, x, reward=0.9)
+
+            assert bandit.arms[7].n == 20
+            assert bandit.is_confident(7) is True
+            original_score = bandit.score(7, x)
+
+            # Save
+            mgr.save(sketch, bandit, thompson)
+
+            # Create fresh components
+            new_bandit = LinUCBBandit(confidence_threshold=5)
+            assert new_bandit.arms[7].n == 0  # fresh = empty
+
+            # Restore
+            mgr.restore(CountMinSketch(), new_bandit, ThompsonSampler())
+
+            assert new_bandit.arms[7].n == 20
+            assert new_bandit.is_confident(7) is True
+            restored_score = new_bandit.score(7, x)
+            assert restored_score == pytest.approx(original_score, abs=0.01)
+        finally:
+            shutil.rmtree(ckpt_dir)
+
+    def test_save_and_restore_preserves_thompson(self):
+        """Thompson priors should survive save→restore cycle."""
+        ckpt_dir = self._make_temp_dir()
+        try:
+            from fsbs.checkpoint import CheckpointManager
+            mgr = CheckpointManager(checkpoint_dir=ckpt_dir)
+
+            sketch = CountMinSketch()
+            bandit = LinUCBBandit()
+            thompson = ThompsonSampler()
+
+            # Give arm 3 many positive rewards
+            for _ in range(50):
+                thompson.update(3, reward=1.0)
+
+            original_stats = thompson.get_stats(3)
+            assert original_stats['alpha'] == pytest.approx(51.0)
+
+            # Save
+            mgr.save(sketch, bandit, thompson)
+
+            # Create fresh and restore
+            new_thompson = ThompsonSampler()
+            mgr.restore(CountMinSketch(), LinUCBBandit(), new_thompson)
+
+            restored_stats = new_thompson.get_stats(3)
+            assert restored_stats['alpha'] == pytest.approx(51.0)
+            assert restored_stats['beta'] == pytest.approx(1.0)
+        finally:
+            shutil.rmtree(ckpt_dir)
+
+    def test_corrupt_file_handled_gracefully(self):
+        """Corrupted checkpoint should be handled without crash."""
+        ckpt_dir = self._make_temp_dir()
+        try:
+            from fsbs.checkpoint import CheckpointManager
+            mgr = CheckpointManager(checkpoint_dir=ckpt_dir)
+
+            # Write garbage to the checkpoint file
+            with open(mgr.filepath, 'wb') as f:
+                f.write(b'GARBAGE DATA THAT IS NOT A VALID CHECKPOINT')
+
+            sketch = CountMinSketch()
+            bandit = LinUCBBandit()
+            thompson = ThompsonSampler()
+
+            # Should return False and not crash
+            result = mgr.restore(sketch, bandit, thompson)
+            assert result is False
+        finally:
+            shutil.rmtree(ckpt_dir)
+
+    def test_sampler_with_checkpoint_integration(self):
+        """Full sampler should work with checkpoint enabled."""
+        ckpt_dir = self._make_temp_dir()
+        try:
+            # Create sampler with checkpoint
+            sampler = FSBSSampler(
+                service_name="frontend",
+                checkpoint_dir=ckpt_dir,
+                checkpoint_interval=999,  # don't auto-save during test
+            )
+
+            # Make some decisions and send rewards
+            for i in range(20):
+                sampler.decide({
+                    'trace_id': f'trace_{i}',
+                    'service_name': 'frontend',
+                    'duration_us': 5000,
+                    'status_code': 0,
+                    'parent_services': [],
+                    'attributes': {},
+                })
+
+            context = [0.5, 0.0, 0.0, 0.8]
+            for _ in range(15):
+                sampler.process_reward(0, context, 0.7)
+
+            assert sampler.bandit.arms[0].n == 15
+
+            # Manually trigger checkpoint save
+            sampler.checkpoint_mgr.save(
+                sampler.sketch, sampler.bandit, sampler.thompson
+            )
+
+            sampler.shutdown()
+
+            # Create NEW sampler with same checkpoint dir
+            # This simulates a crash recovery
+            sampler2 = FSBSSampler(
+                service_name="frontend",
+                checkpoint_dir=ckpt_dir,
+                checkpoint_interval=999,
+            )
+
+            # Verify state was restored
+            assert sampler2.bandit.arms[0].n == 15
+            assert sampler2.bandit.is_confident(0) is True
+
+            # New decisions should use LinUCB (not Thompson)
+            decision = sampler2.decide({
+                'trace_id': 'recovery_test',
+                'service_name': 'frontend',
+                'duration_us': 5000,
+                'status_code': 0,
+                'parent_services': [],
+                'attributes': {},
+            })
+            assert decision.method == 'linucb'
+
+            sampler2.shutdown()
+        finally:
+            shutil.rmtree(ckpt_dir)
+
+    def test_checkpoint_stats_in_metrics(self):
+        """Checkpoint stats should appear in sampler metrics."""
+        ckpt_dir = self._make_temp_dir()
+        try:
+            sampler = FSBSSampler(
+                service_name="frontend",
+                checkpoint_dir=ckpt_dir,
+                checkpoint_interval=999,
+            )
+
+            metrics = sampler.get_metrics()
+            assert 'checkpoint' in metrics
+            assert metrics['checkpoint']['saves_completed'] == 0
+            assert metrics['checkpoint']['checkpoint_dir'] == ckpt_dir
+
+            sampler.shutdown()
+        finally:
+            shutil.rmtree(ckpt_dir)

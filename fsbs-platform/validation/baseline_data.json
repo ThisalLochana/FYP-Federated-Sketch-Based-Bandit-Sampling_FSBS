@@ -1,0 +1,24 @@
+{
+  "timestamp": 1774729824.5595083,
+  "mode": "baseline_100pct_sampling",
+  "description": "100% sampling, no FSBS sidecar, loadgenerator with 10 users",
+  "collection_window": "15 minutes",
+  "total_traces": 1093,
+  "total_spans_in_traces": 12567,
+  "avg_spans_per_trace": 11.5,
+  "avg_duration_ms": 350.6,
+  "avg_value_per_trace": 0.154,
+  "total_value": 168.3,
+  "trace_classes": {
+    "routine": 961,
+    "very_slow": 47,
+    "complex": 84,
+    "error": 1
+  },
+  "class_percentages": {
+    "routine": 87.9,
+    "very_slow": 4.3,
+    "complex": 7.7,
+    "error": 0.1
+  }
+}

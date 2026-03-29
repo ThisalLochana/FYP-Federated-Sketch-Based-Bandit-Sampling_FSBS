@@ -1,0 +1,59 @@
+======================================================================
+           FSBS VALIDATION REPORT
+======================================================================
+
+── SYSTEM STATUS ──
+  Uptime:            1525 seconds
+  Total spans in:    70970
+  Total spans out:   34724
+  Span pass rate:    48.9%
+  Forward errors:    0
+
+── DECISION ENGINE ──
+  Thompson:          4847 (88.7%)
+  LinUCB:            618 (11.3%)
+  Forced (errors):   0 (0.0%)
+  Active arms:       9 / 256
+  Confident arms:    8 / 256
+
+── REWARD FEEDBACK ──
+  Rewards received:  1918
+  Average reward:    0.1615
+
+── TRACES CAPTURED IN JAEGER ──
+  Total unique traces: 627
+    error       :   101  ( 16.1%)
+    very_slow   :    17  (  2.7%)
+    slow        :   183  ( 29.2%)
+    complex     :    69  ( 11.0%)
+    moderate    :    60  (  9.6%)
+    routine     :   197  ( 31.4%)
+
+── FSBS vs RANDOM SAMPLING COMPARISON ──
+  FSBS effective sample rate:    44.5%
+  Random target sample rate:     44.5%
+
+  Metric                               FSBS     Random     Winner
+  ------------------------------ ---------- ---------- ----------
+  Error capture rate                100.0%     44.9%     FSBS ✓
+  Slow trace presence                31.9%     44.2%     Random
+  Avg value per trace                0.423     0.446     Random
+
+  Volume reduction:  51.1% fewer spans sent to Jaeger
+
+── TOP LEARNED ARMS ──
+    Arm    Obs  Mean Reward  Confident Interpretation
+      2   1155        0.179   ✓ LinUCB ← low value (routine)
+     71    246        0.103   ✓ LinUCB ← low value (routine)
+     74    156        0.105   ✓ LinUCB ← low value (routine)
+     10    123        0.114   ✓ LinUCB ← low value (routine)
+     28    106        0.107   ✓ LinUCB ← low value (routine)
+     13     67        0.403   ✓ LinUCB ← moderate value
+      0     45        0.123   ✓ LinUCB ← low value (routine)
+     12     19        0.395   ✓ LinUCB ← moderate value
+
+── CONCLUSION ──
+  ⟳ FSBS needs more training time. Run longer with the reward service active.
+  ★ LinUCB is ACTIVE with 8 confident arms — the bandit is learning!
+
+======================================================================

@@ -1,12 +1,11 @@
-"""
-FSBS Sampler — Phase 4: With reward tracking, decision log, and arm stats.
+r"""
+FSBS Sampler — with local checkpoint for crash recovery.
 
-Changes from Phase 2/3:
-  - Decision log (ring buffer for debugging)
-  - Reward counters
-  - Active arm stats for monitoring
-  - get_recent_decisions() for dashboard
-  - get_active_arms() for dashboard
+Changes from Phase 4:
+  - CheckpointManager integration (save/restore state)
+  - Checkpoint stats in metrics
+  - restore_from_checkpoint() called on init
+  - Checkpoint thread started alongside sketch updater
 """
 
 import time
@@ -14,13 +13,14 @@ import threading
 import logging
 import collections
 import numpy as np
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 
 from .feature_extractor import FeatureExtractor, FeatureVector
 from .count_min_sketch import CountMinSketch
 from .linucb import LinUCBBandit
 from .thompson import ThompsonSampler
 from .mpsc_queue import MPSCQueue, SamplingRecord
+from .checkpoint import CheckpointManager                      # ← CHECKPOINT
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +46,8 @@ class SamplingDecision:
 
 class FSBSSampler:
     """
-    Main sampler — orchestrates feature extraction, sketch, bandit, and queue.
-
-    Phase 4 additions:
-      - Decision log for debugging and reward correlation
-      - Reward tracking counters
-      - Active arm enumeration for dashboard
+    Main sampler — orchestrates feature extraction, sketch, bandit, queue,
+    and local checkpoint for crash recovery.
     """
 
     def __init__(
@@ -61,6 +57,8 @@ class FSBSSampler:
         threshold: float = 0.5,
         confidence_threshold: int = 10,
         force_sample_errors: bool = True,
+        checkpoint_dir: str = "",                              # ← CHECKPOINT
+        checkpoint_interval: float = 60.0,                     # ← CHECKPOINT
     ):
         self.service_name = service_name
         self.force_sample_errors = force_sample_errors
@@ -85,13 +83,35 @@ class FSBSSampler:
         self._linucb_decisions = 0
         self._forced_samples = 0
 
-        # Reward tracking (Phase 4)
+        # Reward tracking
         self._rewards_received = 0
         self._total_reward_value = 0.0
         self._reward_lock = threading.Lock()
 
-        # Decision log — ring buffer of recent decisions (Phase 4)
+        # Decision log
         self._decision_log = collections.deque(maxlen=2000)
+
+        # ── Checkpoint setup ──                               # ← CHECKPOINT
+        self.checkpoint_mgr = None
+        if checkpoint_dir:
+            self.checkpoint_mgr = CheckpointManager(
+                checkpoint_dir=checkpoint_dir,
+                interval_seconds=checkpoint_interval,
+            )
+            # Restore state from previous checkpoint if it exists
+            restored = self.checkpoint_mgr.restore(
+                self.sketch, self.bandit, self.thompson
+            )
+            if restored:
+                logger.info(
+                    "State restored from checkpoint — "
+                    "skipping cold start!"
+                )
+            else:
+                logger.info(
+                    "No checkpoint found — starting with "
+                    "Thompson sampling (cold start)"
+                )
 
         # Background worker
         self._running = True
@@ -102,10 +122,17 @@ class FSBSSampler:
         )
         self._bg_thread.start()
 
+        # Start checkpoint background thread                   # ← CHECKPOINT
+        if self.checkpoint_mgr:
+            self.checkpoint_mgr.start(
+                self.sketch, self.bandit, self.thompson
+            )
+
         logger.info(
             f"FSBS Sampler initialized: service={service_name}, "
             f"alpha={alpha}, threshold={threshold}, "
-            f"confidence={confidence_threshold}"
+            f"confidence={confidence_threshold}, "
+            f"checkpoint={'enabled' if checkpoint_dir else 'disabled'}"
         )
 
     def decide(self, span_data: Dict[str, Any]) -> SamplingDecision:
@@ -160,14 +187,12 @@ class FSBSSampler:
             feature_vector=fv,
         )
 
-        # Step 6: Log and enqueue
         self._log_decision(span_data, decision)
         self._enqueue(span_data, fv, decision)
-
         return decision
 
     def _log_decision(self, span_data: Dict, decision: SamplingDecision):
-        """Add decision to ring buffer for debugging."""
+        """Add decision to ring buffer."""
         self._decision_log.append({
             'timestamp': time.time(),
             'trace_id': str(span_data.get('trace_id', ''))[:16],
@@ -206,12 +231,7 @@ class FSBSSampler:
     def process_reward(
         self, arm_index: int, context: List[float], reward: float
     ) -> Dict[str, Any]:
-        """
-        Process a reward signal from the reward plane.
-        Updates both LinUCB and Thompson. Called ASYNCHRONOUSLY.
-
-        Returns arm stats after update.
-        """
+        """Process a reward signal. Called ASYNCHRONOUSLY."""
         x = np.array(context, dtype=np.float32)
         self.bandit.update(arm_index, x, reward)
         self.thompson.update(arm_index, reward)
@@ -228,7 +248,7 @@ class FSBSSampler:
         }
 
     def get_active_arms(self) -> List[Dict[str, Any]]:
-        """Return stats for arms that have received observations."""
+        """Return stats for arms with observations."""
         active = []
         for i in range(self.bandit.n_arms):
             arm = self.bandit.arms[i]
@@ -245,7 +265,7 @@ class FSBSSampler:
         return sorted(active, key=lambda x: x['n_observations'], reverse=True)
 
     def get_recent_decisions(self, limit: int = 50) -> List[Dict]:
-        """Return recent decisions from the ring buffer."""
+        """Return recent decisions."""
         items = list(self._decision_log)
         return items[-limit:]
 
@@ -266,7 +286,7 @@ class FSBSSampler:
             if a.n >= self.bandit.confidence_threshold
         )
 
-        return {
+        metrics = {
             'service': self.service_name,
             'uptime_seconds': round(time.time() - self.start_time, 1),
             'total_spans': total,
@@ -286,8 +306,19 @@ class FSBSSampler:
             'bandit_memory_bytes': self.bandit.memory_bytes,
         }
 
+        # Add checkpoint stats                                 # ← CHECKPOINT
+        if self.checkpoint_mgr:
+            metrics['checkpoint'] = self.checkpoint_mgr.get_stats()
+
+        return metrics
+
     def shutdown(self):
-        """Stop background threads."""
+        """Stop all threads, save final checkpoint."""
         self._running = False
         self._bg_thread.join(timeout=5.0)
+
+        # Save final checkpoint on shutdown                    # ← CHECKPOINT
+        if self.checkpoint_mgr:
+            self.checkpoint_mgr.stop()
+
         logger.info("FSBS Sampler shut down")

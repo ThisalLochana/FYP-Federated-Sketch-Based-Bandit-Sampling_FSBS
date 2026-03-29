@@ -319,3 +319,105 @@ curl "http://localhost:8081/decisions?limit=20" -UseBasicParsing
 cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar
 .\venv\Scripts\activate
 python -m pytest tests/test_components.py -v
+
+### PHASE 5: Final Validation — Prove FSBS Works
+## 5.0 — What We're Proving
+Question	How We Prove It
+Does FSBS actually reduce trace volume?	Compare span counts: baseline (100%) vs FSBS
+Does FSBS retain important traces (errors, slow)?	Inject anomalies → check if Jaeger captures them
+Does random sampling miss important traces?	Run random sampler → compare error/slow capture rates
+Does FSBS learn over time?	Show LinUCB activation, arm reward distribution
+What's the overhead?	Measure sidecar latency per span
+
+## Run the Full Validation
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform
+
+docker compose ps
+# All 16 containers should be Up
+
+## Step 2: Let the system run for at least 5 minutes with rewards
+# Check that rewards are flowing:
+docker compose logs reward-service --tail 5
+
+## Run the anomaly injector
+# Open a new terminal:
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar
+.\venv\Scripts\activate
+
+# Install requests if not done yet
+pip install requests
+
+# Run the injector (takes ~5 minutes)
+python ..\validation\anomaly_injector.py
+
+# While it runs, you can watch the dashboard in another terminal:
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar
+.\venv\Scripts\activate
+python ..\monitoring\dashboard.py
+
+## Step 4: Wait for the injector to finish
+# After the 5-minute injection completes, wait another 2 minutes for the reward service to process the new traces.
+
+## Step 5: Run the overhead benchmark
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar
+.\venv\Scripts\activate
+python ..\validation\benchmark_overhead.py
+
+## Step 6: Run the validation report
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar
+.\venv\Scripts\activate
+python ..\validation\validate_fsbs.py
+
+### Middle PHASE: Updated Components for Crash Recovery
+## Deploy Updated Stack
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform
+
+# Rebuild and restart
+docker compose down
+docker compose up --build -d
+
+# Verify all containers running
+docker compose ps
+
+# Watch sidecar logs — look for checkpoint messages
+docker compose logs -f fsbs-sidecar
+
+# Expected log output:
+fsbs-sidecar | FSBS Sidecar starting
+fsbs-sidecar |   Checkpoint:  enabled → /data/checkpoints
+fsbs-sidecar | No checkpoint file found — starting fresh
+fsbs-sidecar | Checkpoint thread started: saving every 60s to /data/checkpoints/fsbs_state.ckpt
+fsbs-sidecar | gRPC listening on 0.0.0.0:4317
+
+# After 60 seconds:
+fsbs-sidecar | FSBS METRICS | ... ckpt_saves=1 | fwd_err=0
+
+## Test Crash Recovery
+# Wait at least 2 minutes for checkpoint to save and rewards to accumulate
+
+# Check current state
+curl http://localhost:8081/metrics -UseBasicParsing
+
+# Note the rewards_received and confident_arms numbers
+
+# SIMULATE A CRASH — force-kill the sidecar
+docker kill fsbs-sidecar
+
+# Wait 5 seconds
+
+# Docker will auto-restart it (restart: unless-stopped)
+docker compose up fsbs-sidecar -d
+
+# View fsbs sidecar logs
+docker compose logs --tail 20 fsbs-sidecar
+
+# You should see:
+fsbs-sidecar | FSBS Sidecar starting
+fsbs-sidecar |   Checkpoint:  enabled → /data/checkpoints
+fsbs-sidecar | Checkpoint restored: age=45.2s, size=48156 bytes   ← RESTORED!
+fsbs-sidecar | State restored from checkpoint — skipping cold start!
+
+# Verify state was preserved
+curl http://localhost:8081/arms -UseBasicParsing
+
+# The arms should show the same n_observations and confident values from before the crash. LinUCB should be active immediately — no cold start period.

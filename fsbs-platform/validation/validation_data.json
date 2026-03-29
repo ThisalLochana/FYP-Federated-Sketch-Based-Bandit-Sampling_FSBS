@@ -1,0 +1,141 @@
+{
+  "timestamp": 1774731916.5973268,
+  "sidecar_metrics": {
+    "sampler": {
+      "service": "fsbs-sidecar",
+      "uptime_seconds": 1525.1,
+      "total_spans": 5465,
+      "sampled_spans": 2429,
+      "dropped_spans": 3036,
+      "sample_rate": 0.4445,
+      "thompson_decisions": 4847,
+      "linucb_decisions": 618,
+      "forced_samples": 0,
+      "rewards_received": 1918,
+      "avg_reward": 0.1615,
+      "active_arms": 9,
+      "confident_arms": 8,
+      "queue_size": 0,
+      "queue_dropped": 0,
+      "sketch_memory_bytes": 8192,
+      "bandit_memory_bytes": 38912,
+      "checkpoint": {
+        "checkpoint_dir": "/data/checkpoints",
+        "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+        "saves_completed": 25,
+        "saves_failed": 0,
+        "last_save_time": 1774731891.1167004,
+        "last_save_size_bytes": 50208,
+        "restore_success": false,
+        "restore_age_seconds": 0.0,
+        "interval_seconds": 60.0
+      }
+    },
+    "service": {
+      "total_export_calls": 12131,
+      "total_spans_in": 70970,
+      "total_spans_out": 34724,
+      "spans_dropped": 36246,
+      "forward_errors": 0,
+      "trace_cache_size": 5568,
+      "trace_cache_hits": 65380,
+      "trace_cache_misses": 5465
+    }
+  },
+  "arms": {
+    "active_arms": 9,
+    "confident_arms": 8,
+    "arms": [
+      {
+        "arm_index": 2,
+        "n_observations": 1155,
+        "confident": true,
+        "thompson_mean": 0.1787,
+        "thompson_alpha": 206.8,
+        "thompson_beta": 950.2
+      },
+      {
+        "arm_index": 71,
+        "n_observations": 246,
+        "confident": true,
+        "thompson_mean": 0.1032,
+        "thompson_alpha": 25.6,
+        "thompson_beta": 222.4
+      },
+      {
+        "arm_index": 74,
+        "n_observations": 156,
+        "confident": true,
+        "thompson_mean": 0.1051,
+        "thompson_alpha": 16.6,
+        "thompson_beta": 141.4
+      },
+      {
+        "arm_index": 10,
+        "n_observations": 123,
+        "confident": true,
+        "thompson_mean": 0.1136,
+        "thompson_alpha": 14.2,
+        "thompson_beta": 110.8
+      },
+      {
+        "arm_index": 28,
+        "n_observations": 106,
+        "confident": true,
+        "thompson_mean": 0.1074,
+        "thompson_alpha": 11.6,
+        "thompson_beta": 96.4
+      },
+      {
+        "arm_index": 13,
+        "n_observations": 67,
+        "confident": true,
+        "thompson_mean": 0.4029,
+        "thompson_alpha": 27.8,
+        "thompson_beta": 41.2
+      },
+      {
+        "arm_index": 0,
+        "n_observations": 45,
+        "confident": true,
+        "thompson_mean": 0.1234,
+        "thompson_alpha": 5.8,
+        "thompson_beta": 41.2
+      },
+      {
+        "arm_index": 12,
+        "n_observations": 19,
+        "confident": true,
+        "thompson_mean": 0.3952,
+        "thompson_alpha": 8.3,
+        "thompson_beta": 12.7
+      },
+      {
+        "arm_index": 15,
+        "n_observations": 1,
+        "confident": false,
+        "thompson_mean": 0.6667,
+        "thompson_alpha": 2.0,
+        "thompson_beta": 1.0
+      }
+    ]
+  },
+  "trace_classifications": {
+    "routine": 197,
+    "complex": 69,
+    "very_slow": 17,
+    "slow": 183,
+    "moderate": 60,
+    "error": 101
+  },
+  "random_sampling_simulation": {
+    "target_sample_rate": 0.4445,
+    "avg_sample_count": 279.2,
+    "avg_actual_rate": 0.4452,
+    "avg_error_capture": 0.4491,
+    "avg_slow_capture": 0.4419,
+    "avg_value_capture": 0.4457
+  },
+  "fsbs_sample_rate": 0.4445,
+  "volume_reduction": 0.5107228406368889
+}

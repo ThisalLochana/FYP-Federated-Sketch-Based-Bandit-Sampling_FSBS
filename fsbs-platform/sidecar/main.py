@@ -1,5 +1,5 @@
-"""
-FSBS Sidecar — Phase 4: With HTTP API for rewards and monitoring.
+r"""
+FSBS Sidecar — with local checkpoint for crash recovery.
 """
 
 import os
@@ -25,7 +25,7 @@ except ImportError as e:
     sys.exit(1)
 
 from fsbs.sampler import FSBSSampler
-from fsbs.http_api import start_http_server                    # ← ADDED
+from fsbs.http_api import start_http_server
 
 logging.basicConfig(
     level=os.environ.get('FSBS_LOG_LEVEL', 'INFO').upper(),
@@ -215,6 +215,13 @@ class MetricsReporter:
                 ts['total_spans_out'] / ts['total_spans_in']
                 if ts['total_spans_in'] > 0 else 0.0
             )
+
+            ckpt = sm.get('checkpoint', {})                    # ← CHECKPOINT
+            ckpt_info = (
+                f"ckpt_saves={ckpt.get('saves_completed', 0)}"
+                if ckpt else "ckpt=disabled"
+            )
+
             logger.info(
                 f"FSBS METRICS | "
                 f"spans_in={ts['total_spans_in']} "
@@ -227,6 +234,7 @@ class MetricsReporter:
                 f"avg_rwd={sm['avg_reward']:.3f} | "
                 f"arms: active={sm['active_arms']} "
                 f"confident={sm['confident_arms']} | "
+                f"{ckpt_info} | "                              # ← CHECKPOINT
                 f"fwd_err={ts['forward_errors']}"
             )
 
@@ -238,18 +246,21 @@ def serve():
     service_name = os.environ.get('FSBS_SERVICE_NAME', 'fsbs-sidecar')
     listen_port = os.environ.get('FSBS_LISTEN_PORT', '4317')
     forward_endpoint = os.environ.get('FSBS_FORWARD_ENDPOINT', 'otel-collector:4317')
-    http_port = int(os.environ.get('FSBS_HTTP_PORT', '8081'))    # ← ADDED
+    http_port = int(os.environ.get('FSBS_HTTP_PORT', '8081'))
     alpha = float(os.environ.get('FSBS_ALPHA', '1.0'))
     threshold = float(os.environ.get('FSBS_THRESHOLD', '0.5'))
     confidence = int(os.environ.get('FSBS_CONFIDENCE_THRESHOLD', '10'))
     metrics_interval = float(os.environ.get('FSBS_METRICS_INTERVAL', '10'))
+    checkpoint_dir = os.environ.get('FSBS_CHECKPOINT_DIR', '')         # ← CHECKPOINT
+    checkpoint_interval = float(os.environ.get('FSBS_CHECKPOINT_INTERVAL', '60'))  # ← CHECKPOINT
 
     logger.info("=" * 60)
-    logger.info("FSBS Sidecar starting (Phase 4)")
-    logger.info(f"  gRPC:       0.0.0.0:{listen_port}")
-    logger.info(f"  HTTP API:   0.0.0.0:{http_port}")
-    logger.info(f"  Forward to: {forward_endpoint}")
+    logger.info("FSBS Sidecar starting")
+    logger.info(f"  gRPC:        0.0.0.0:{listen_port}")
+    logger.info(f"  HTTP API:    0.0.0.0:{http_port}")
+    logger.info(f"  Forward to:  {forward_endpoint}")
     logger.info(f"  Alpha={alpha}  Threshold={threshold}  Confidence={confidence}")
+    logger.info(f"  Checkpoint:  {'enabled → ' + checkpoint_dir if checkpoint_dir else 'disabled'}")  # ← CHECKPOINT
     logger.info("=" * 60)
 
     sampler = FSBSSampler(
@@ -258,6 +269,8 @@ def serve():
         threshold=threshold,
         confidence_threshold=confidence,
         force_sample_errors=True,
+        checkpoint_dir=checkpoint_dir,                         # ← CHECKPOINT
+        checkpoint_interval=checkpoint_interval,               # ← CHECKPOINT
     )
 
     server = grpc.server(
@@ -271,8 +284,7 @@ def serve():
     trace_service = FSBSTraceService(sampler, forward_endpoint)
     trace_service_pb2_grpc.add_TraceServiceServicer_to_server(trace_service, server)
 
-    # Start HTTP API (Phase 4)
-    start_http_server(sampler, trace_service, port=http_port)   # ← ADDED
+    start_http_server(sampler, trace_service, port=http_port)
 
     reporter = MetricsReporter(sampler, trace_service, interval=metrics_interval)
 
