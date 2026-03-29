@@ -190,3 +190,132 @@ docker compose logs fsbs-sidecar 2>&1 | findstr "FSBS METRICS"
 
 ## Reset to default
 # Change back to "0.5" for the rest of the demo.
+
+### PHASE 4: Reward Plane, Learning & Monitoring
+## Launch Phase 4
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform
+
+# Rebuild sidecar (updated code) and build reward service
+docker compose up --build -d
+
+# Verify all 16 containers running
+docker compose ps
+
+# You should now see 16 containers including the new reward-service
+
+## Verify Step by Step
+# Step A: Check sidecar HTTP API
+# Health check
+curl http://localhost:8081/health -UseBasicParsing
+
+# Should return:
+# {"status": "ok"}
+
+# If curl is not available, open in browser: http://localhost:8081/health
+
+# Full metrics
+curl http://localhost:8081/metrics -UseBasicParsing
+
+## Step B: Check reward service is running
+docker compose logs -f reward-service
+
+# Press Ctrl+C to stop following.
+
+## Step C: Check sidecar logs show rewards arriving
+docker compose logs fsbs-sidecar 2>&1 | findstr "rewards"
+
+# Look for metrics lines showing rewards= increasing:
+FSBS METRICS | ... rewards=24 avg_rwd=0.271 | arms: active=8 confident=0
+FSBS METRICS | ... rewards=48 avg_rwd=0.305 | arms: active=12 confident=2
+FSBS METRICS | ... rewards=96 avg_rwd=0.318 | arms: active=15 confident=5   ← LinUCB activating!
+
+## Step D: Run the dashboard
+# Open a new PowerShell terminal:
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar
+
+# Activate venv (has requests installed)
+.\venv\Scripts\activate
+
+# Install requests if not already
+pip install requests
+
+# Run dashboard
+python ..\monitoring\dashboard.py
+
+# You should see a live updating dashboard like this:
+  ╔══════════════════════════════════════════════════════════╗
+  ║              FSBS SIDECAR — LIVE DASHBOARD              ║
+  ╠══════════════════════════════════════════════════════════╣
+  ║  Uptime: 3m 42s      Threshold: 51.2% effective        ║
+  ╠══════════════════════════════════════════════════════════╣
+  ║  THROUGHPUT                                             ║
+  ║    Spans In:  847         Spans Out: 434                ║
+  ║    Pass Rate: 51.2%  █████████████░░░░░░░░░░░░░         ║
+  ║    FWD Errors: 0                                        ║
+  ╠══════════════════════════════════════════════════════════╣
+  ║  DECISION ENGINE                                        ║
+  ║    Thompson: 156      ( 82.1%)  ← cold start            ║
+  ║    LinUCB:   31       ( 16.3%)  ← LEARNING ACTIVE!      ║
+  ║    Forced:   3        (  1.6%)  (error traces)           ║
+  ╠══════════════════════════════════════════════════════════╣
+  ║  REWARD FEEDBACK                                        ║
+  ║    Total Rewards: 72        Avg Reward: 0.312           ║
+  ║    Active Arms:   14  / 256                             ║
+  ║    Confident:     4   / 256  (LinUCB eligible)          ║
+  ╠══════════════════════════════════════════════════════════╣
+  ║  TOP ARMS (by observation count)                        ║
+  ║    Arm   0: n=18    mean_rwd=0.287  ✓  ← LinUCB        ║
+  ║    Arm   5: n=14    mean_rwd=0.421  ✓  ← LinUCB        ║
+  ║    Arm  48: n=12    mean_rwd=0.350  ✓  ← LinUCB        ║
+  ║    Arm  16: n=11    mean_rwd=0.195  ✓  ← LinUCB        ║
+  ║    Arm   1: n=7     mean_rwd=0.528                      ║
+  ║    Arm  64: n=5     mean_rwd=0.180                      ║
+  ╠══════════════════════════════════════════════════════════╣
+  ║  ★ LinUCB is ACTIVE — the bandit is learning!           ║
+  ╚══════════════════════════════════════════════════════════╝
+
+  Refreshing every 5s. Press Ctrl+C to exit.
+
+# Key things to watch for:
+
+1. Thompson % decreasing → Arms are accumulating observations
+2. LinUCB % increasing → The bandit is taking over decisions
+3. Confident arms increasing → More arms have ≥10 observations
+4. Arms with high mean_rwd → The bandit learns these patterns are valuable
+5. Arms with low mean_rwd → The bandit learns these are routine
+6. Leave the dashboard running for 5–10 minutes to watch the transition.
+
+##  Verify LinUCB Is Actually Learning
+# After running for 5+ minutes with the reward service active:
+# Check arm details
+curl http://localhost:8081/arms -UseBasicParsing
+
+# Look at the confident field — arms with confident: true are using LinUCB instead of Thompson. Their thompson_mean shows the learned reward expectation:
+
+# Arms with mean_rwd > 0.5 → Error/slow trace patterns → sampled MORE
+# Arms with mean_rwd < 0.2 → Routine patterns → sampled LESS
+
+# Check recent decisions — you should see "linucb" method appearing
+curl "http://localhost:8081/decisions?limit=20" -UseBasicParsing
+
+## Aggregation & Gossip Note
+# In your architecture, Tier 3 (Aggregation) includes:
+
+#   Sketch Merger: Merges Count-Min Sketches from multiple sidecars
+#   Global Arm Model: Federated averaging of A matrices and b vectors
+#   Gossip Protocol: UDP multicast for sketch delta broadcasting
+# In our Docker Compose setup with ONE sidecar, these are not needed. The single sidecar has the complete view of all traces. In a production multi-node deployment (Kubernetes with per-pod sidecars), you would:
+
+#   Run one sidecar per pod
+#   Use a DaemonSet aggregator per node
+#   Sidecars gossip sketch deltas every 5 seconds via UDP
+#   Aggregator merges sketches using CountMinSketch.merge() (already implemented)
+#   Aggregator performs federated averaging of arm models
+#   Updated models are pushed back to sidecars
+# The core data structures (merge(), serialize()/deserialize()) are already built in Phase 2. The gossip transport would use Python's socket module for UDP multicast.
+
+## Updated Tests
+# Run the updated tests:
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar
+.\venv\Scripts\activate
+python -m pytest tests/test_components.py -v

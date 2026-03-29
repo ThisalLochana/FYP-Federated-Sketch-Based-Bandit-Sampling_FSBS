@@ -646,3 +646,111 @@ class TestPerformance:
         assert per_call_us < 1000
         
         sampler.shutdown()
+
+class TestPhase4RewardIntegration:
+    """Tests for Phase 4 reward processing."""
+
+    def test_reward_updates_arm(self):
+        """Processing a reward should update the arm's observation count."""
+        sampler = FSBSSampler(service_name="frontend", confidence_threshold=5)
+
+        context = [0.5, 1.0, 0.0, 0.8]
+        result = sampler.process_reward(arm_index=5, context=context, reward=1.0)
+
+        assert result['arm_index'] == 5
+        assert result['new_n_observations'] == 1
+        assert result['confident'] is False  # need 5 observations
+
+        # Send 4 more rewards
+        for _ in range(4):
+            result = sampler.process_reward(5, context, 0.8)
+
+        assert result['new_n_observations'] == 5
+        assert result['confident'] is True  # now confident!
+
+        sampler.shutdown()
+
+    def test_linucb_activates_after_rewards(self):
+        """After enough rewards, decisions should use LinUCB."""
+        sampler = FSBSSampler(
+            service_name="frontend",
+            confidence_threshold=5,
+        )
+
+        # First decision should use Thompson (cold start)
+        span = {
+            'trace_id': 'test1',
+            'service_name': 'frontend',
+            'duration_us': 5000,
+            'status_code': 0,
+            'parent_services': [],
+            'attributes': {},
+        }
+        d1 = sampler.decide(span)
+        assert d1.method == 'thompson'
+
+        # Send rewards to the same arm
+        context = d1.feature_vector.to_bandit_context()
+        arm_idx = d1.arm_index
+        for _ in range(10):
+            sampler.process_reward(arm_idx, context, 0.5)
+
+        # Next decision for same arm should use LinUCB
+        span['trace_id'] = 'test2'
+        d2 = sampler.decide(span)
+        assert d2.method == 'linucb'
+
+        sampler.shutdown()
+
+    def test_decision_log(self):
+        """Decision log should capture recent decisions."""
+        sampler = FSBSSampler(service_name="frontend")
+
+        for i in range(10):
+            sampler.decide({
+                'trace_id': f'trace_{i}',
+                'service_name': 'frontend',
+                'duration_us': 5000,
+                'status_code': 0,
+                'parent_services': [],
+                'attributes': {},
+            })
+
+        recent = sampler.get_recent_decisions(limit=5)
+        assert len(recent) == 5
+        assert 'arm_index' in recent[0]
+        assert 'method' in recent[0]
+        assert 'score' in recent[0]
+
+        sampler.shutdown()
+
+    def test_active_arms_tracking(self):
+        """Active arms should be trackable after rewards."""
+        sampler = FSBSSampler(service_name="frontend")
+
+        # Initially no active arms
+        arms = sampler.get_active_arms()
+        assert len(arms) == 0
+
+        # Send rewards to two arms
+        sampler.process_reward(5, [0.5, 0.0, 0.1, 0.8], 1.0)
+        sampler.process_reward(10, [0.3, 1.0, 0.2, 0.5], 0.5)
+
+        arms = sampler.get_active_arms()
+        assert len(arms) == 2
+        assert arms[0]['arm_index'] in [5, 10]
+
+        sampler.shutdown()
+
+    def test_metrics_include_rewards(self):
+        """Metrics should include reward tracking."""
+        sampler = FSBSSampler(service_name="frontend")
+
+        sampler.process_reward(0, [0.5, 0.0, 0.1, 0.8], 0.8)
+        sampler.process_reward(0, [0.5, 0.0, 0.1, 0.8], 0.6)
+
+        metrics = sampler.get_metrics()
+        assert metrics['rewards_received'] == 2
+        assert metrics['avg_reward'] == pytest.approx(0.7, abs=0.01)
+
+        sampler.shutdown()        

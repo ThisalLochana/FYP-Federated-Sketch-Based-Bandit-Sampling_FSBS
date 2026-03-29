@@ -53,6 +53,7 @@ services:
     environment:
       FSBS_SERVICE_NAME: "fsbs-sidecar"
       FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8081"                                   # ← ADD
       FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
       FSBS_ALPHA: "1.0"
       FSBS_THRESHOLD: "0.5"
@@ -61,6 +62,7 @@ services:
       FSBS_LOG_LEVEL: "INFO"
     ports:
       - "4320:4317"     # host:4320 for debugging
+      - "8081:8081"                                            # ← ADD
     depends_on:
       - otel-collector
     mem_limit: 256m
@@ -255,3 +257,24 @@ services:
     depends_on:
       - frontend
     mem_limit: 256m
+
+  # ============================================================
+  # REWARD SERVICE — closes the learning feedback loop
+  # ============================================================
+
+  reward-service:                                              # ← NEW SERVICE
+    build:
+      context: ./reward-service
+      dockerfile: Dockerfile
+    container_name: reward-service
+    restart: unless-stopped
+    environment:
+      JAEGER_URL: "http://jaeger:16686"
+      SIDECAR_URL: "http://fsbs-sidecar:8081"
+      POLL_INTERVAL: "30"
+      TRACES_PER_POLL: "30"
+      LOOKBACK_SECONDS: "60"
+    depends_on:
+      - jaeger
+      - fsbs-sidecar
+    mem_limit: 128m
