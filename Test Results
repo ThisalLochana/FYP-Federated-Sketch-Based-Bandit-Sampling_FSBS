@@ -1,0 +1,104 @@
+(venv) PS D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar> python -m pytest tests/test_components.py -v   
+============================================================================== test session starts ==============================================================================
+platform win32 -- Python 3.10.11, pytest-8.3.0, pluggy-1.6.0 -- D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar
+collected 39 items                                                                                                                                                               
+
+tests/test_components.py::TestCountMinSketch::test_empty_sketch_returns_zero PASSED                                                                                        [  2%] 
+tests/test_components.py::TestCountMinSketch::test_single_update PASSED                                                                                                    [  5%] 
+tests/test_components.py::TestCountMinSketch::test_multiple_updates_same_key PASSED                                                                                        [  7%] 
+tests/test_components.py::TestCountMinSketch::test_different_keys_no_interference PASSED                                                                                   [ 10%] 
+tests/test_components.py::TestCountMinSketch::test_novelty_score_decreases_with_frequency PASSED                                                                           [ 12%]
+tests/test_components.py::TestCountMinSketch::test_merge PASSED                                                                                                            [ 15%] 
+tests/test_components.py::TestCountMinSketch::test_memory_size PASSED                                                                                                      [ 17%] 
+tests/test_components.py::TestCountMinSketch::test_serialize_deserialize PASSED                                                                                            [ 20%] 
+tests/test_components.py::TestFeatureExtractor::test_latency_buckets PASSED                                                                                                [ 23%] 
+tests/test_components.py::TestFeatureExtractor::test_error_detection PASSED                                                                                                [ 25%] 
+tests/test_components.py::TestFeatureExtractor::test_service_cluster_id PASSED                                                                                             [ 28%] 
+tests/test_components.py::TestFeatureExtractor::test_topo_hash_different_paths PASSED                                                                                      [ 30%] 
+tests/test_components.py::TestFeatureExtractor::test_bandit_context_normalized PASSED                                                                                      [ 33%] 
+tests/test_components.py::TestFeatureExtractor::test_packed_key_is_32bit PASSED                                                                                            [ 35%] 
+tests/test_components.py::TestFeatureExtractor::test_arm_index_in_range PASSED                                                                                             [ 38%] 
+tests/test_components.py::TestLinUCB::test_initial_arm_is_uncertain PASSED                                                                                                 [ 41%] 
+tests/test_components.py::TestLinUCB::test_arm_becomes_confident_after_updates PASSED                                                                                      [ 43%] 
+tests/test_components.py::TestLinUCB::test_ucb_score_positive PASSED                                                                                                       [ 46%] 
+tests/test_components.py::TestLinUCB::test_high_reward_arm_gets_higher_score PASSED                                                                                        [ 48%] 
+tests/test_components.py::TestLinUCB::test_error_context_gets_higher_score PASSED                                                                                          [ 51%] 
+tests/test_components.py::TestLinUCB::test_memory_footprint PASSED                                                                                                         [ 53%]
+tests/test_components.py::TestLinUCB::test_should_sample_returns_tuple PASSED                                                                                              [ 56%] 
+tests/test_components.py::TestThompsonSampler::test_initial_uniform_prior PASSED                                                                                           [ 58%] 
+tests/test_components.py::TestThompsonSampler::test_high_reward_increases_sampling PASSED                                                                                  [ 61%] 
+tests/test_components.py::TestThompsonSampler::test_low_reward_decreases_sampling PASSED                                                                                   [ 64%] 
+tests/test_components.py::TestThompsonSampler::test_independent_arms PASSED                                                                                                [ 66%] 
+tests/test_components.py::TestMPSCQueue::test_push_and_drain PASSED                                                                                                        [ 69%] 
+tests/test_components.py::TestMPSCQueue::test_capacity_limit PASSED                                                                                                        [ 71%] 
+tests/test_components.py::TestMPSCQueue::test_drain_batch_size PASSED                                                                                                      [ 74%] 
+tests/test_components.py::TestFSBSSampler::test_basic_decision PASSED                                                                                                      [ 76%]
+tests/test_components.py::TestFSBSSampler::test_errors_always_sampled PASSED                                                                                               [ 79%] 
+tests/test_components.py::TestFSBSSampler::test_cold_start_uses_thompson PASSED                                                                                            [ 82%] 
+tests/test_components.py::TestFSBSSampler::test_metrics_tracking PASSED                                                                                                    [ 84%] 
+tests/test_components.py::TestFSBSSampler::test_background_worker_updates_sketch PASSED                                                                                    [ 87%]
+tests/test_components.py::TestFSBSSampler::test_sampling_rate_adjustable PASSED                                                                                            [ 89%] 
+tests/test_components.py::TestPerformance::test_feature_extraction_speed PASSED                                                                                            [ 92%]
+tests/test_components.py::TestPerformance::test_sketch_query_speed PASSED                                                                                                  [ 94%]
+tests/test_components.py::TestPerformance::test_linucb_decision_speed PASSED                                                                                               [ 97%]
+tests/test_components.py::TestPerformance::test_full_pipeline_speed PASSED                                                                                                 [100%]
+
+============================================================================== 39 passed in 3.54s =============================================================================== 
+(venv) PS D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar> python -m pytest tests/test_components.py -v -s
+============================================================================== test session starts ==============================================================================
+platform win32 -- Python 3.10.11, pytest-8.3.0, pluggy-1.6.0 -- D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar
+collected 39 items                                                                                                                                                               
+
+tests/test_components.py::TestCountMinSketch::test_empty_sketch_returns_zero PASSED
+tests/test_components.py::TestCountMinSketch::test_single_update PASSED
+tests/test_components.py::TestCountMinSketch::test_multiple_updates_same_key PASSED
+tests/test_components.py::TestCountMinSketch::test_different_keys_no_interference PASSED
+tests/test_components.py::TestCountMinSketch::test_novelty_score_decreases_with_frequency PASSED
+tests/test_components.py::TestCountMinSketch::test_merge PASSED
+tests/test_components.py::TestCountMinSketch::test_memory_size PASSED
+tests/test_components.py::TestCountMinSketch::test_serialize_deserialize PASSED
+tests/test_components.py::TestFeatureExtractor::test_latency_buckets PASSED
+tests/test_components.py::TestFeatureExtractor::test_error_detection PASSED
+tests/test_components.py::TestFeatureExtractor::test_service_cluster_id PASSED
+tests/test_components.py::TestFeatureExtractor::test_topo_hash_different_paths PASSED
+tests/test_components.py::TestFeatureExtractor::test_bandit_context_normalized PASSED
+tests/test_components.py::TestFeatureExtractor::test_packed_key_is_32bit PASSED
+tests/test_components.py::TestFeatureExtractor::test_arm_index_in_range PASSED
+tests/test_components.py::TestLinUCB::test_initial_arm_is_uncertain PASSED
+tests/test_components.py::TestLinUCB::test_arm_becomes_confident_after_updates PASSED
+tests/test_components.py::TestLinUCB::test_ucb_score_positive PASSED
+tests/test_components.py::TestLinUCB::test_high_reward_arm_gets_higher_score PASSED
+tests/test_components.py::TestLinUCB::test_error_context_gets_higher_score PASSED
+tests/test_components.py::TestLinUCB::test_memory_footprint PASSED
+tests/test_components.py::TestLinUCB::test_should_sample_returns_tuple PASSED
+tests/test_components.py::TestThompsonSampler::test_initial_uniform_prior PASSED
+tests/test_components.py::TestThompsonSampler::test_high_reward_increases_sampling PASSED
+tests/test_components.py::TestThompsonSampler::test_low_reward_decreases_sampling PASSED
+tests/test_components.py::TestThompsonSampler::test_independent_arms PASSED
+tests/test_components.py::TestMPSCQueue::test_push_and_drain PASSED
+tests/test_components.py::TestMPSCQueue::test_capacity_limit PASSED
+tests/test_components.py::TestMPSCQueue::test_drain_batch_size PASSED
+tests/test_components.py::TestFSBSSampler::test_basic_decision PASSED
+tests/test_components.py::TestFSBSSampler::test_errors_always_sampled PASSED
+tests/test_components.py::TestFSBSSampler::test_cold_start_uses_thompson PASSED
+tests/test_components.py::TestFSBSSampler::test_metrics_tracking PASSED
+tests/test_components.py::TestFSBSSampler::test_background_worker_updates_sketch PASSED
+tests/test_components.py::TestFSBSSampler::test_sampling_rate_adjustable PASSED
+tests/test_components.py::TestPerformance::test_feature_extraction_speed
+Feature extraction: 3.08 µs/call
+PASSED
+tests/test_components.py::TestPerformance::test_sketch_query_speed
+Sketch query: 1.95 µs/call
+PASSED
+tests/test_components.py::TestPerformance::test_linucb_decision_speed
+LinUCB decision: 5.16 µs/call
+PASSED
+tests/test_components.py::TestPerformance::test_full_pipeline_speed
+Full pipeline: 11.07 µs/call
+PASSED
+
+============================================================================== 39 passed in 4.45s ===============================================================================

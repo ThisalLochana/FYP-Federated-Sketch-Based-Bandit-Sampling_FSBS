@@ -1,0 +1,85 @@
+### PHASE 1: Foundation — Microservices Demo + Jaeger
+## Create Project Structure & Clone
+# Create project root
+mkdir C:\fsbs-demo
+cd C:\fsbs-demo
+
+# Clone the Google microservices demo
+git clone https://github.com/GoogleCloudPlatform/microservices-demo.git
+
+## Create our working directory for FSBS additions
+mkdir fsbs-platform
+cd fsbs-platform
+mkdir otel-config
+
+Your directory structure:
+C:\fsbs-demo\
+├── microservices-demo\          ← cloned repo
+│   ├── docker-compose.yaml      ← the demo's compose file
+│   ├── src\                     ← source code (we won't modify this)
+│   └── ...
+└── fsbs-platform\               ← our FSBS additions
+    └── otel-config\             ← OTel Collector config
+
+## Create the OTel Collector
+# Create file C:\fsbs-demo\fsbs-platform\otel-config\otel-collector-config.yaml
+
+## Create the Complete Docker Compose File
+# Create file C:\fsbs-demo\fsbs-platform\docker-compose.yaml
+
+## Launch the Stack
+cd C:\fsbs-demo\fsbs-platform
+
+# Pull all images first (takes 5-10 minutes on first run)
+docker compose pull
+
+# Start everything
+docker compose up -d
+
+# Watch the startup logs
+docker compose logs -f
+
+# Wait about 60–90 seconds for all services to start. You'll see log output from each service. Look for signs of healthy startup.
+
+# Press Ctrl+C to stop following logs (the services keep running in background).
+
+## Verify All Services are Running
+docker compose ps
+
+# You should see all containers with status Up or running
+
+# If any service shows Restarting or Exit, check its logs:  
+docker compose logs <service-name>
+# e.g., docker compose logs cartservice
+
+##  Record Baseline Metrics
+# Collects recent 1000 traces collected within last 5 minutes of time period in Jaeger Collector using curl command
+(curl "http://localhost:16686/api/traces?service=frontend&limit=1000&lookback=5m" -UseBasicParsing -ErrorAction SilentlyContinue).Content | python -c "import sys,json; d=json.load(sys.stdin); d_list=d.get('data') or []; print(f'Traces found: {len(d_list)}')"
+
+# You should see something like this Traces found: 1000
+
+# Get Avg spans per trace, Typical duration of a span
+(curl "http://localhost:16686/api/traces?service=frontend&limit=1000&lookback=5m" -UseBasicParsing -ErrorAction SilentlyContinue).Content | python -c "import sys,json; d=json.load(sys.stdin); traces=d.get('data') or []; count=len(traces); total_spans=sum(len(t['spans']) for t in traces); total_dur=sum(max(s['startTime'] + s['duration'] for s in t['spans']) - min(s['startTime'] for s in t['spans']) for t in traces) if traces else 0; print(f'--- Metrics for {count} Traces ---'); print(f'Avg Spans per Trace: {total_spans/count:.2f}' if count else 'No traces'); print(f'Avg Trace Duration: {total_dur/count/1000:.2f}ms' if count else '')"
+
+-------------------------------------------------------
+### PHASE 2: FSBS Sidecar Core — Python Implementation
+##  Run the Tests Locally
+# Open a NEW terminal
+cd C:\fsbs-demo\fsbs-platform\sidecar
+
+# Create a virtual environment
+python -m venv venv
+.\venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run all tests with verbose output
+python -m pytest tests/test_components.py -v
+
+# Run with performance output visible
+python -m pytest tests/test_components.py -v -s
+
+# The output should be 39 passed in ~3.5s with PASSED Test names
+
+### PHASE 3: Integration — Wire Sidecar Into the Live Pipeline

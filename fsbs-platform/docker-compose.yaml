@@ -1,0 +1,243 @@
+# docker-compose.yaml — Google Microservices Demo + Jaeger
+# Run from: C:\fsbs-demo\fsbs-platform\
+
+services:
+
+  # ============================================================
+  # INFRASTRUCTURE
+  # ============================================================
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    container_name: jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317"          # OTLP gRPC (internal only, used by otel-collector)
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=info
+    mem_limit: 512m
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.114.0
+    container_name: otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-config/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"     # OTLP gRPC (receives from microservices)
+      - "4318:4318"     # OTLP HTTP
+    depends_on:
+      - jaeger
+    mem_limit: 256m
+
+  redis-cart:
+    image: redis:7.4-alpine
+    container_name: redis-cart
+    restart: unless-stopped
+    ports:
+      - "6379"
+    mem_limit: 128m
+
+  # ============================================================
+  # MICROSERVICES
+  # ============================================================
+
+  frontend:
+    image: gcr.io/google-samples/microservices-demo/frontend:v0.10.1
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      ENABLE_TRACING: "1" # enable tracing
+      # panic: environment variable "COLLECTOR_SERVICE_ADDR" not set is that once you set ENABLE_TRACING: "1", the Go services (Frontend, ProductCatalog, Checkout) expect an extra legacy variable that the demo used to use.
+      COLLECTOR_SERVICE_ADDR: "otel-collector:4317" 
+      PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
+      CURRENCY_SERVICE_ADDR: "currencyservice:7000"
+      CART_SERVICE_ADDR: "cartservice:7070"
+      RECOMMENDATION_SERVICE_ADDR: "recommendationservice:8080"
+      SHIPPING_SERVICE_ADDR: "shippingservice:50051"
+      CHECKOUT_SERVICE_ADDR: "checkoutservice:5050"
+      AD_SERVICE_ADDR: "adservice:9555"
+      # In newer versions of the Google Microservices Demo (v0.10.1+), the Go code uses a function called mustMapEnv.
+      # This means if a required environment variable is missing or empty, the application refuses to start and "panics."
+      # So SHOPPING_ASSISTANT_SERVICE_ADDR: "" can't be empty.
+      SHOPPING_ASSISTANT_SERVICE_ADDR: "shoppingassistantservice:8080"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_SERVICE_NAME: "frontend"
+    depends_on:
+      - otel-collector
+      - productcatalogservice
+      - cartservice
+      - currencyservice
+      - recommendationservice
+      - shippingservice
+      - checkoutservice
+      - adservice
+    mem_limit: 256m
+
+  productcatalogservice:
+    image: gcr.io/google-samples/microservices-demo/productcatalogservice:v0.10.1
+    container_name: productcatalogservice
+    restart: unless-stopped
+    environment:
+      PORT: "3550"
+      ENABLE_TRACING: "1" # enable tracing
+      # panic: environment variable "COLLECTOR_SERVICE_ADDR" not set is that once you set ENABLE_TRACING: "1", the Go services (Frontend, ProductCatalog, Checkout) expect an extra legacy variable that the demo used to use.
+      COLLECTOR_SERVICE_ADDR: "otel-collector:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_SERVICE_NAME: "productcatalogservice"
+    depends_on:
+      - otel-collector
+    mem_limit: 128m
+
+  cartservice:
+    image: gcr.io/google-samples/microservices-demo/cartservice:v0.10.1
+    container_name: cartservice
+    restart: unless-stopped
+    environment:
+      ENABLE_TRACING: "1" # enable tracing
+      REDIS_ADDR: "redis-cart:6379"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_SERVICE_NAME: "cartservice"
+    depends_on:
+      - redis-cart
+      - otel-collector
+    mem_limit: 256m
+
+  currencyservice:
+    image: gcr.io/google-samples/microservices-demo/currencyservice:v0.10.1
+    container_name: currencyservice
+    restart: unless-stopped
+    environment:
+      PORT: "7000"
+      ENABLE_TRACING: "1" # enable tracing
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_SERVICE_NAME: "currencyservice"
+      # The paymentservice is crashing because it is trying to start the Google Cloud Profiler, but it doesn't have a Google Cloud "Project ID" to connect to
+      DISABLE_PROFILER: "1" # to skip the profiler initialization entirely, allowing the gRPC server to stay running. 
+    depends_on:
+      - otel-collector
+    mem_limit: 128m
+
+  paymentservice:
+    image: gcr.io/google-samples/microservices-demo/paymentservice:v0.10.1
+    container_name: paymentservice
+    restart: unless-stopped
+    environment:
+      PORT: "50051"
+      ENABLE_TRACING: "1" # enable tracing
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_SERVICE_NAME: "paymentservice"
+      # The paymentservice is crashing because it is trying to start the Google Cloud Profiler, but it doesn't have a Google Cloud "Project ID" to connect to
+      DISABLE_PROFILER: "1" # to skip the profiler initialization entirely, allowing the gRPC server to stay running. 
+    depends_on:
+      - otel-collector
+    mem_limit: 128m
+
+  shippingservice:
+    image: gcr.io/google-samples/microservices-demo/shippingservice:v0.10.1
+    container_name: shippingservice
+    restart: unless-stopped
+    environment:
+      PORT: "50051"
+      ENABLE_TRACING: "1" # enable tracing
+      # panic: environment variable "COLLECTOR_SERVICE_ADDR" not set is that once you set ENABLE_TRACING: "1", the Go services (Frontend, ProductCatalog, Checkout) expect an extra legacy variable that the demo used to use.
+      COLLECTOR_SERVICE_ADDR: "otel-collector:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_SERVICE_NAME: "shippingservice"
+    depends_on:
+      - otel-collector
+    mem_limit: 128m
+
+  emailservice:
+    image: gcr.io/google-samples/microservices-demo/emailservice:v0.10.1
+    container_name: emailservice
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      ENABLE_TRACING: "1" # enable tracing
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_SERVICE_NAME: "emailservice"
+    depends_on:
+      - otel-collector
+    mem_limit: 128m
+
+  checkoutservice:
+    image: gcr.io/google-samples/microservices-demo/checkoutservice:v0.10.1
+    container_name: checkoutservice
+    restart: unless-stopped
+    environment:
+      PORT: "5050"
+      ENABLE_TRACING: "1" # enable tracing
+      # panic: environment variable "COLLECTOR_SERVICE_ADDR" not set is that once you set ENABLE_TRACING: "1", the Go services (Frontend, ProductCatalog, Checkout) expect an extra legacy variable that the demo used to use.
+      COLLECTOR_SERVICE_ADDR: "otel-collector:4317"
+      PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
+      SHIPPING_SERVICE_ADDR: "shippingservice:50051"
+      PAYMENT_SERVICE_ADDR: "paymentservice:50051"
+      EMAIL_SERVICE_ADDR: "emailservice:8080"
+      CURRENCY_SERVICE_ADDR: "currencyservice:7000"
+      CART_SERVICE_ADDR: "cartservice:7070"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_SERVICE_NAME: "checkoutservice"
+    depends_on:
+      - otel-collector
+      - productcatalogservice
+      - cartservice
+      - currencyservice
+      - paymentservice
+      - shippingservice
+      - emailservice
+    mem_limit: 128m
+
+  recommendationservice:
+    image: gcr.io/google-samples/microservices-demo/recommendationservice:v0.10.1
+    container_name: recommendationservice
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      ENABLE_TRACING: "1" # enable tracing
+      PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_SERVICE_NAME: "recommendationservice"
+      OTEL_PYTHON_LOG_CORRELATION: "true"
+    depends_on:
+      - otel-collector
+      - productcatalogservice
+    mem_limit: 256m
+
+  adservice:
+    image: gcr.io/google-samples/microservices-demo/adservice:v0.10.1
+    container_name: adservice
+    restart: unless-stopped
+    environment:
+      PORT: "9555"
+      ENABLE_TRACING: "1" # enable tracing
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_SERVICE_NAME: "adservice"
+    depends_on:
+      - otel-collector
+    mem_limit: 512m
+
+  # ============================================================
+  # LOAD GENERATOR (auto-generates traffic)
+  # ============================================================
+
+  loadgenerator:
+    image: gcr.io/google-samples/microservices-demo/loadgenerator:v0.10.1
+    container_name: loadgenerator
+    restart: unless-stopped
+    environment:
+      ENABLE_TRACING: "1" # enable tracing
+      FRONTEND_ADDR: "frontend:8080"
+      USERS: "10"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_SERVICE_NAME: "loadgenerator"
+    depends_on:
+      - frontend
+    mem_limit: 256m

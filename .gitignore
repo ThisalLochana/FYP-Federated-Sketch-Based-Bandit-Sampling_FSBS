@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+env/
+.env/
+ENV/
+bin/
+lib/
+include/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nosexy
+.coverage
+.cache
+.pytest_cache/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Local environment variables / secrets
+.env
+.venv
+secrets.py
+
+# IDE specific files (Optional but recommended)
+.vscode/
+.idea/
+*.swp
+*.swo

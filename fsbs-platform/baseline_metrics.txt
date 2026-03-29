@@ -1,0 +1,13 @@
+=== PHASE 1 BASELINE ===
+Date: 2026/03/27
+Duration: 5 minutes
+
+Services visible in Jaeger: 5
+Traces in last 5 min (frontend): 1000
+Avg spans per trace:  18.53
+Typical trace duration: 143μs - 8.04s
+Avg trace duration: 770.01ms
+Error traces found: no
+Error traces found: [yes/no, how many]
+
+Notes: All traces are being captured (100% sampling, no FSBS yet)
