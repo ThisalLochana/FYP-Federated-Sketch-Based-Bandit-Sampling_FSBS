@@ -118,7 +118,7 @@ tests/test_components.py::TestCountMinSketch::test_single_update PASSED         
 tests/test_components.py::TestCountMinSketch::test_multiple_updates_same_key PASSED                                                                                        [  6%] 
 tests/test_components.py::TestCountMinSketch::test_different_keys_no_interference PASSED                                                                                   [  9%] 
 tests/test_components.py::TestCountMinSketch::test_novelty_score_decreases_with_frequency PASSED                                                                           [ 11%] 
-tests/test_components.py::TestCountMinSketch::test_merge PASSED                                                                                                            [ 13%]
+tests/test_components.py::TestCountMinSketch::test_merge PASSED                                                                                                            [ 13%] 
 tests/test_components.py::TestCountMinSketch::test_memory_size PASSED                                                                                                      [ 15%] 
 tests/test_components.py::TestCountMinSketch::test_serialize_deserialize PASSED                                                                                            [ 18%] 
 tests/test_components.py::TestFeatureExtractor::test_latency_buckets PASSED                                                                                                [ 20%] 
@@ -128,22 +128,22 @@ tests/test_components.py::TestFeatureExtractor::test_topo_hash_different_paths P
 tests/test_components.py::TestFeatureExtractor::test_bandit_context_normalized PASSED                                                                                      [ 29%] 
 tests/test_components.py::TestFeatureExtractor::test_packed_key_is_32bit PASSED                                                                                            [ 31%] 
 tests/test_components.py::TestFeatureExtractor::test_arm_index_in_range PASSED                                                                                             [ 34%] 
-tests/test_components.py::TestLinUCB::test_initial_arm_is_uncertain PASSED                                                                                                 [ 36%] 
+tests/test_components.py::TestLinUCB::test_initial_arm_is_uncertain PASSED                                                                                                 [ 36%]
 tests/test_components.py::TestLinUCB::test_arm_becomes_confident_after_updates PASSED                                                                                      [ 38%] 
 tests/test_components.py::TestLinUCB::test_ucb_score_positive PASSED                                                                                                       [ 40%] 
 tests/test_components.py::TestLinUCB::test_high_reward_arm_gets_higher_score PASSED                                                                                        [ 43%] 
 tests/test_components.py::TestLinUCB::test_error_context_gets_higher_score PASSED                                                                                          [ 45%] 
-tests/test_components.py::TestLinUCB::test_memory_footprint PASSED                                                                                                         [ 47%]
+tests/test_components.py::TestLinUCB::test_memory_footprint PASSED                                                                                                         [ 47%] 
 tests/test_components.py::TestLinUCB::test_should_sample_returns_tuple PASSED                                                                                              [ 50%] 
 tests/test_components.py::TestThompsonSampler::test_initial_uniform_prior PASSED                                                                                           [ 52%] 
 tests/test_components.py::TestThompsonSampler::test_high_reward_increases_sampling PASSED                                                                                  [ 54%] 
 tests/test_components.py::TestThompsonSampler::test_low_reward_decreases_sampling PASSED                                                                                   [ 56%] 
 tests/test_components.py::TestThompsonSampler::test_independent_arms PASSED                                                                                                [ 59%] 
 tests/test_components.py::TestMPSCQueue::test_push_and_drain PASSED                                                                                                        [ 61%] 
-tests/test_components.py::TestMPSCQueue::test_capacity_limit PASSED                                                                                                        [ 63%]
+tests/test_components.py::TestMPSCQueue::test_capacity_limit PASSED                                                                                                        [ 63%] 
 tests/test_components.py::TestMPSCQueue::test_drain_batch_size PASSED                                                                                                      [ 65%] 
 tests/test_components.py::TestFSBSSampler::test_basic_decision PASSED                                                                                                      [ 68%] 
-tests/test_components.py::TestFSBSSampler::test_errors_always_sampled PASSED                                                                                               [ 70%] 
+tests/test_components.py::TestFSBSSampler::test_errors_always_sampled PASSED                                                                                               [ 70%]
 tests/test_components.py::TestFSBSSampler::test_cold_start_uses_thompson PASSED                                                                                            [ 72%] 
 tests/test_components.py::TestFSBSSampler::test_metrics_tracking PASSED                                                                                                    [ 75%] 
 tests/test_components.py::TestFSBSSampler::test_background_worker_updates_sketch PASSED                                                                                    [ 77%]
@@ -158,11 +158,5 @@ tests/test_components.py::TestPhase4RewardIntegration::test_decision_log PASSED 
 tests/test_components.py::TestPhase4RewardIntegration::test_active_arms_tracking PASSED                                                                                    [ 97%]
 tests/test_components.py::TestPhase4RewardIntegration::test_metrics_include_rewards PASSED                                                                                 [100%]
 
-=============================================================================== warnings summary ================================================================================ 
-tests\test_components.py:1
-  D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar\tests\test_components.py:1: DeprecationWarning: invalid escape sequence '\s'
-    """
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-========================================================================= 44 passed, 1 warning in 6.50s ========================================================================= 
-(venv) PS D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar> 
+============================================================================== 44 passed in 7.27s =============================================================================== 
+(venv) PS D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar>
