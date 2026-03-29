@@ -1,0 +1,25 @@
+=== PHASE 3 — FSBS ENABLED ===
+Date: 2026/03/27
+Duration: 15
+
+From sidecar logs:
+  spans_in:         257239
+  spans_out:        128109  
+  span_pass_rate:   49.8%
+  thompson_decisions: 17826
+  linucb_decisions:   0
+  forced_samples:     0
+  forward_errors:     0
+
+From Jaeger (frontend, last 15 min, limit 1000):
+  Traces found:     1000
+
+Phase 1 baseline comparison:
+  Phase 1 traces:   [number from baseline_metrics.txt]
+  Phase 3 traces:   [number from above]
+  Reduction:        [percentage fewer traces]
+
+Notes:
+  - All traces in Jaeger are complete (no missing spans)
+  - Error traces are all captured
+  - Thompson sampling active (cold start), LinUCB will activate after more traffic

@@ -1,5 +1,5 @@
-# docker-compose.yaml — Phase 3: FSBS Sidecar in the pipeline
-# Microservices → FSBS Sidecar → OTel Collector → Jaeger
+# docker-compose.yaml — Google Microservices Demo + Jaeger
+# Run from: C:\fsbs-demo\fsbs-platform\
 
 services:
 
@@ -12,8 +12,8 @@ services:
     container_name: jaeger
     restart: unless-stopped
     ports:
-      - "16686:16686"
-      - "4317"
+      - "16686:16686"   # Jaeger UI
+      - "4317"          # OTLP gRPC (internal only, used by otel-collector)
     environment:
       - COLLECTOR_OTLP_ENABLED=true
       - LOG_LEVEL=info
@@ -27,7 +27,8 @@ services:
     volumes:
       - ./otel-config/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
     ports:
-      - "4318:4318"
+      - "4317:4317"     # OTLP gRPC (receives from microservices)
+      - "4318:4318"     # OTLP HTTP
     depends_on:
       - jaeger
     mem_limit: 256m
@@ -41,32 +42,7 @@ services:
     mem_limit: 128m
 
   # ============================================================
-  # FSBS SIDECAR — the intelligent sampling engine          ← NEW
-  # ============================================================
-
-  fsbs-sidecar:                                              # ← NEW SERVICE
-    build:
-      context: ./sidecar
-      dockerfile: Dockerfile
-    container_name: fsbs-sidecar
-    restart: unless-stopped
-    environment:
-      FSBS_SERVICE_NAME: "fsbs-sidecar"
-      FSBS_LISTEN_PORT: "4317"
-      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
-      FSBS_ALPHA: "1.0"
-      FSBS_THRESHOLD: "0.5"
-      FSBS_CONFIDENCE_THRESHOLD: "10"
-      FSBS_METRICS_INTERVAL: "10"
-      FSBS_LOG_LEVEL: "INFO"
-    ports:
-      - "4320:4317"     # host:4320 for debugging
-    depends_on:
-      - otel-collector
-    mem_limit: 256m
-
-  # ============================================================
-  # MICROSERVICES — now pointing to fsbs-sidecar
+  # MICROSERVICES
   # ============================================================
 
   frontend:
@@ -77,8 +53,9 @@ services:
       - "8080:8080"
     environment:
       PORT: "8080"
-      ENABLE_TRACING: "1"
-      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar:4317"            # ← CHANGED
+      ENABLE_TRACING: "1" # enable tracing
+      # panic: environment variable "COLLECTOR_SERVICE_ADDR" not set is that once you set ENABLE_TRACING: "1", the Go services (Frontend, ProductCatalog, Checkout) expect an extra legacy variable that the demo used to use.
+      COLLECTOR_SERVICE_ADDR: "otel-collector:4317" 
       PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
       CURRENCY_SERVICE_ADDR: "currencyservice:7000"
       CART_SERVICE_ADDR: "cartservice:7070"
@@ -86,11 +63,14 @@ services:
       SHIPPING_SERVICE_ADDR: "shippingservice:50051"
       CHECKOUT_SERVICE_ADDR: "checkoutservice:5050"
       AD_SERVICE_ADDR: "adservice:9555"
+      # In newer versions of the Google Microservices Demo (v0.10.1+), the Go code uses a function called mustMapEnv.
+      # This means if a required environment variable is missing or empty, the application refuses to start and "panics."
+      # So SHOPPING_ASSISTANT_SERVICE_ADDR: "" can't be empty.
       SHOPPING_ASSISTANT_SERVICE_ADDR: "shoppingassistantservice:8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_SERVICE_NAME: "frontend"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - otel-collector
       - productcatalogservice
       - cartservice
       - currencyservice
@@ -106,12 +86,13 @@ services:
     restart: unless-stopped
     environment:
       PORT: "3550"
-      ENABLE_TRACING: "1"
-      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar:4317"            # ← CHANGED
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      ENABLE_TRACING: "1" # enable tracing
+      # panic: environment variable "COLLECTOR_SERVICE_ADDR" not set is that once you set ENABLE_TRACING: "1", the Go services (Frontend, ProductCatalog, Checkout) expect an extra legacy variable that the demo used to use.
+      COLLECTOR_SERVICE_ADDR: "otel-collector:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_SERVICE_NAME: "productcatalogservice"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - otel-collector
     mem_limit: 128m
 
   cartservice:
@@ -119,13 +100,13 @@ services:
     container_name: cartservice
     restart: unless-stopped
     environment:
-      ENABLE_TRACING: "1"
+      ENABLE_TRACING: "1" # enable tracing
       REDIS_ADDR: "redis-cart:6379"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_SERVICE_NAME: "cartservice"
     depends_on:
       - redis-cart
-      - fsbs-sidecar                                          # ← CHANGED
+      - otel-collector
     mem_limit: 256m
 
   currencyservice:
@@ -134,12 +115,13 @@ services:
     restart: unless-stopped
     environment:
       PORT: "7000"
-      ENABLE_TRACING: "1"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      ENABLE_TRACING: "1" # enable tracing
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_SERVICE_NAME: "currencyservice"
-      DISABLE_PROFILER: "1"
+      # The paymentservice is crashing because it is trying to start the Google Cloud Profiler, but it doesn't have a Google Cloud "Project ID" to connect to
+      DISABLE_PROFILER: "1" # to skip the profiler initialization entirely, allowing the gRPC server to stay running. 
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - otel-collector
     mem_limit: 128m
 
   paymentservice:
@@ -148,12 +130,13 @@ services:
     restart: unless-stopped
     environment:
       PORT: "50051"
-      ENABLE_TRACING: "1"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      ENABLE_TRACING: "1" # enable tracing
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_SERVICE_NAME: "paymentservice"
-      DISABLE_PROFILER: "1"
+      # The paymentservice is crashing because it is trying to start the Google Cloud Profiler, but it doesn't have a Google Cloud "Project ID" to connect to
+      DISABLE_PROFILER: "1" # to skip the profiler initialization entirely, allowing the gRPC server to stay running. 
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - otel-collector
     mem_limit: 128m
 
   shippingservice:
@@ -162,12 +145,14 @@ services:
     restart: unless-stopped
     environment:
       PORT: "50051"
-      ENABLE_TRACING: "1"
-      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar:4317"            # ← CHANGED
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      ENABLE_TRACING: "1" # enable tracing
+      # panic: environment variable "COLLECTOR_SERVICE_ADDR" not set is that once you set ENABLE_TRACING: "1", the Go services (Frontend, ProductCatalog, Checkout) expect an extra legacy variable that the demo used to use.
+      COLLECTOR_SERVICE_ADDR: "otel-collector:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+      OTEL_TRACES_EXPORTER: "otlp"
       OTEL_SERVICE_NAME: "shippingservice"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - otel-collector
     mem_limit: 128m
 
   emailservice:
@@ -176,11 +161,11 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8080"
-      ENABLE_TRACING: "1"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      ENABLE_TRACING: "1" # enable tracing
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_SERVICE_NAME: "emailservice"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - otel-collector
     mem_limit: 128m
 
   checkoutservice:
@@ -189,18 +174,19 @@ services:
     restart: unless-stopped
     environment:
       PORT: "5050"
-      ENABLE_TRACING: "1"
-      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar:4317"            # ← CHANGED
+      ENABLE_TRACING: "1" # enable tracing
+      # panic: environment variable "COLLECTOR_SERVICE_ADDR" not set is that once you set ENABLE_TRACING: "1", the Go services (Frontend, ProductCatalog, Checkout) expect an extra legacy variable that the demo used to use.
+      COLLECTOR_SERVICE_ADDR: "otel-collector:4317"
       PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
       SHIPPING_SERVICE_ADDR: "shippingservice:50051"
       PAYMENT_SERVICE_ADDR: "paymentservice:50051"
       EMAIL_SERVICE_ADDR: "emailservice:8080"
       CURRENCY_SERVICE_ADDR: "currencyservice:7000"
       CART_SERVICE_ADDR: "cartservice:7070"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_SERVICE_NAME: "checkoutservice"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - otel-collector
       - productcatalogservice
       - cartservice
       - currencyservice
@@ -215,13 +201,13 @@ services:
     restart: unless-stopped
     environment:
       PORT: "8080"
-      ENABLE_TRACING: "1"
+      ENABLE_TRACING: "1" # enable tracing
       PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_SERVICE_NAME: "recommendationservice"
       OTEL_PYTHON_LOG_CORRELATION: "true"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - otel-collector
       - productcatalogservice
     mem_limit: 256m
 
@@ -231,15 +217,15 @@ services:
     restart: unless-stopped
     environment:
       PORT: "9555"
-      ENABLE_TRACING: "1"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      ENABLE_TRACING: "1" # enable tracing
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_SERVICE_NAME: "adservice"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - otel-collector
     mem_limit: 512m
 
   # ============================================================
-  # LOAD GENERATOR
+  # LOAD GENERATOR (auto-generates traffic)
   # ============================================================
 
   loadgenerator:
@@ -247,10 +233,10 @@ services:
     container_name: loadgenerator
     restart: unless-stopped
     environment:
-      ENABLE_TRACING: "1"
+      ENABLE_TRACING: "1" # enable tracing
       FRONTEND_ADDR: "frontend:8080"
       USERS: "10"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_SERVICE_NAME: "loadgenerator"
     depends_on:
       - frontend

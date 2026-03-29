@@ -1,3 +1,5 @@
+# LM Arena With Claude-Opus-4-6-Thinking
+https://arena.ai/c/019d2bdd-8db1-70f5-a234-be96485df5a0
 ### PHASE 1: Foundation — Microservices Demo + Jaeger
 ## Create Project Structure & Clone
 # Create project root
@@ -83,3 +85,108 @@ python -m pytest tests/test_components.py -v -s
 # The output should be 39 passed in ~3.5s with PASSED Test names
 
 ### PHASE 3: Integration — Wire Sidecar Into the Live Pipeline
+## Build the Sidecar Docker Image
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform
+
+# Build the image
+docker build -t fsbs-sidecar:latest ./sidecar
+
+# Verify it built
+docker images fsbs-sidecar
+
+##Back Up Current docker-compose.yaml, Then Replace
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform
+
+# Keep your working Phase 1 config as backup
+copy docker-compose.yaml docker-compose-phase1-baseline.yaml
+
+## Launch the Stack
+cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform
+
+# Stop everything from Phase 1
+docker compose down
+
+# Build the sidecar image and start everything
+docker compose up --build -d
+
+# Watch the sidecar logs specifically
+docker compose logs -f fsbs-sidecar
+
+## Verify in Jaeger UI
+# Step A: Open Jaeger
+Open: http://localhost:16686
+
+# Step B: Check services are present
+Click the Service dropdown. You should see the same services as Phase 1:
+
+frontend
+checkoutservice
+productcatalogservice
+currencyservice
+paymentservice
+If the dropdown is empty, wait 2–3 minutes for the load generator to produce traffic.
+
+# Step C: Compare trace counts
+Select frontend, set Lookback to Last 15 Minutes, set Limit to 1000
+Click Find Traces
+Count the traces — this number should be noticeably less than your Phase 1 baseline
+For example, if Phase 1 showed ~200 traces in 15 minutes, Phase 3 should show ~100 traces (roughly 50% with default threshold=0.5).
+
+# Step D: Verify traces are complete
+Click on any trace
+Check the waterfall view — you should see all spans of the trace present
+This confirms the trace-level caching is working (all spans of a sampled trace are kept together)
+# Step E: Check that errors are captured
+In the search bar, set Tags to: otel.status_code=ERROR or error=true
+If there are any error traces, they should ALL appear (because force_sample_errors=True)
+
+## Collect Phase 3 Metrics
+# Get sidecar metrics
+# Get the latest metrics line from sidecar logs
+docker compose logs fsbs-sidecar 2>&1 | findstr "FSBS METRICS"
+
+## Collect data for phase3_metrics.txt file
+# 1. Grab the absolute latest metrics line from the sidecar
+$latestLog = docker compose logs fsbs-sidecar 2>&1 | Select-String "FSBS METRICS" | Select-Object -Last 1
+
+# 2. Query Jaeger for the exact number of traces in the last 15 minutes
+$jaegerResponse = (Invoke-WebRequest "http://localhost:16686/api/traces?service=frontend&limit=5000&lookback=15m" -UseBasicParsing -ErrorAction SilentlyContinue).Content
+$traceCount = ($jaegerResponse | ConvertFrom-Json).data.Count
+
+# 3. Print it out nicely
+Write-Host "`n=== AUTOMATED PHASE 3 METRICS ===" -ForegroundColor Cyan
+Write-Host "SIDECAR LOGS: " -ForegroundColor Yellow
+Write-Host $latestLog.Line
+Write-Host "`nJAEGER DB: " -ForegroundColor Yellow
+Write-Host "Traces found (last 15m): $traceCount"
+Write-Host "=================================`n" -ForegroundColor Cyan
+
+## Experiment: See the Threshold Effect
+# Try different thresholds to see FSBS adapt:
+
+# High threshold (sample less — aggressive filtering)
+docker compose down fsbs-sidecar
+
+# Edit docker-compose.yaml: change FSBS_THRESHOLD to "0.8"
+# Or use command line override:
+docker compose up -d
+
+# To quickly test, edit the FSBS_THRESHOLD value in docker-compose.yaml
+  fsbs-sidecar:
+    ...
+    environment:
+      FSBS_THRESHOLD: "0.8"    # ← change this
+
+docker compose up --build -d fsbs-sidecar
+docker compose restart frontend productcatalogservice checkoutservice currencyservice paymentservice
+
+# Wait 2 minutes, then check
+docker compose logs fsbs-sidecar 2>&1 | findstr "FSBS METRICS"
+
+# With threshold=0.8, you should see span_pass_rate drop to ~20–30%.
+
+## Low threshold (sample more — minimal filtering)
+# Change FSBS_THRESHOLD to "0.2", rebuild, restart. You should see span_pass_rate rise to ~70–80%.
+
+## Reset to default
+# Change back to "0.5" for the rest of the demo.
