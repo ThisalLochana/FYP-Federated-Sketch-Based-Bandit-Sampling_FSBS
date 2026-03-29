@@ -20,7 +20,7 @@ FSBS Sampling: keeps 10% of traces → retains ~100% of errors
 
 
 ## Architecture Overview
-
+```
 Microservices ──OTLP──▶ FSBS Sidecar ──OTLP──▶ OTel Collector ──▶ Jaeger
 │ ▲ │
 decides │ │ reward │
@@ -37,6 +37,7 @@ DROP │ │ │
 ├── Trace-level cache (complete traces)
 ├── Local checkpoint (crash recovery, 48KB file)
 └── HTTP API (metrics, rewards, monitoring)
+```
 
 
 ### Tier 1 — Microservices (Request Plane)
@@ -111,50 +112,59 @@ more" and "routine fast traces are low value → sample them less."
 ## Quick Start
 
 ### 1. Clone and Setup
-
-```powershell
+```
 mkdir C:\fsbs-demo
 cd C:\fsbs-demo
 git clone https://github.com/GoogleCloudPlatform/microservices-demo.git
 
+
 mkdir fsbs-platform
 cd fsbs-platform
 # Copy all project files into this directory
+```
 
 ## 2. Run Unit Tests
-
+```
 cd sidecar
 python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
 python -m pytest tests/test_components.py -v
 # Expected: 52 passed, 0 warnings
+```
 
 ## 3. Start the Full Stack
-
+```
 cd ..  # back to fsbs-platform
 docker compose up --build -d
 docker compose ps
 # Expected: 16 containers running
+```
 
 ## 4. Access Services
 
 Service	URL	Purpose
 Online Boutique	http://localhost:8080	The demo e-commerce store
+
 Jaeger UI	http://localhost:16686	View distributed traces
+
 FSBS Health	http://localhost:8081/health	Sidecar health check
+
 FSBS Metrics	http://localhost:8081/metrics	Full metrics JSON
+
 FSBS Arms	http://localhost:8081/arms	Learned arm statistics
+
 FSBS Decisions	http://localhost:8081/decisions?limit=20	Recent decisions
 
 ## 5. Monitor the Dashboard
-
+```
 cd sidecar
 .\venv\Scripts\activate
 python ..\monitoring\dashboard.py
+```
 
 ## 6. Run Validation
-
+```
 # From fsbs-platform directory with venv activated
 
 # Inject mixed traffic (5 minutes)
@@ -165,11 +175,12 @@ python validation\benchmark_overhead.py
 
 # Generate validation report
 python validation\validate_fsbs.py
+```
 
 ### Collecting Baseline for Comparison
 
 To fairly compare FSBS against 100% sampling:
-
+```
 # Stop FSBS stack
 docker compose down
 
@@ -192,9 +203,10 @@ python validation\anomaly_injector.py
 timeout 120
 python validation\validate_fsbs.py
 # Report will include baseline comparison
+```
 
 ### Project Structure
-
+```
 fsbs-platform/
 ├── docker-compose.yaml                  ← FSBS stack (16 containers)
 ├── docker-compose-baseline-test.yaml    ← Baseline stack (no sidecar)
@@ -238,10 +250,11 @@ fsbs-platform/
     ├── baseline_data.json               ← (generated) baseline metrics
     ├── validation_report.txt            ← (generated) final report
     └── validation_data.json             ← (generated) raw validation data
+```
 
 ### Configuration
-# All sidecar settings are configurable via environment variables:
-
+All sidecar settings are configurable via environment variables:
+```
 Variable	Default	Description
 FSBS_SERVICE_NAME	unknown	Name of the attached service
 FSBS_LISTEN_PORT	4317	gRPC port for receiving OTLP spans
@@ -254,8 +267,9 @@ FSBS_CHECKPOINT_DIR	(empty)	Directory for checkpoint files (empty = disabled)
 FSBS_CHECKPOINT_INTERVAL	60	Seconds between checkpoint saves
 FSBS_METRICS_INTERVAL	10	Seconds between metrics log lines
 FSBS_LOG_LEVEL	INFO	Logging level (DEBUG, INFO, WARNING, ERROR)
+```
 
-### Key Algorithms
+# Key Algorithms
 ## LinUCB (Contextual Bandit)
 Each of 256 arms maintains a 4×4 matrix A and 4-element vector b.
 The UCB score for context vector x is:
@@ -280,6 +294,7 @@ Sample p ~ Beta(α, β), compare to threshold.
 Transitions automatically to LinUCB as observations accumulate.
 
 ## Docker Commands Reference
+```
 # Start everything
 docker compose up --build -d
 
@@ -306,12 +321,13 @@ docker kill fsbs-sidecar
 
 # Check resource usage
 docker stats --no-stream
+```
 
-## HTTP API Reference
-# GET /health
+# HTTP API Reference
+## GET /health
 {"status": "ok"}
 
-# GET /metrics
+## GET /metrics
 {
   "sampler": {
     "total_spans": 12847,
@@ -337,7 +353,7 @@ docker stats --no-stream
   }
 }
 
-# GET /arms
+## GET /arms
 {
   "active_arms": 18,
   "confident_arms": 12,
@@ -351,7 +367,7 @@ docker stats --no-stream
   ]
 }
 
-# GET /decisions?limit=10
+## GET /decisions?limit=10
 {
   "count": 10,
   "decisions": [
@@ -368,7 +384,7 @@ docker stats --no-stream
   ]
 }
 
-# POST /reward
+## POST /reward
 // Request:
 {
   "arm_index": 5,
@@ -384,7 +400,7 @@ docker stats --no-stream
   "confident": true
 }
 
-## Troubleshooting
+# Troubleshooting
 Problem	Solution
 fsbs-sidecar restarting	Check docker compose logs fsbs-sidecar for errors
 No traces in Jaeger	Wait 2-3 minutes for loadgenerator traffic
@@ -397,36 +413,3 @@ Tests fail with numpy error	Use numpy==1.26.4 instead of numpy==2.1.0 in require
 
 ---
 
-## 2. Test Cases README
-
-Create `D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar\tests\README.md`:
-
-```markdown
-# FSBS Test Suite
-
-52 unit, integration, and performance tests covering every component
-of the FSBS sidecar architecture.
-
-## Running Tests
-
-```powershell
-cd D:\IIT\4th Year\FYP\Implementation_1\fsbs-demo\fsbs-platform\sidecar
-
-# Create and activate virtual environment (first time only)
-python -m venv venv
-.\venv\Scripts\activate
-pip install -r requirements.txt
-
-# Run all tests with verbose output
-python -m pytest tests/test_components.py -v
-
-# Run all tests with performance numbers printed
-python -m pytest tests/test_components.py -v -s
-
-# Run a specific test class
-python -m pytest tests/test_components.py::TestCountMinSketch -v
-
-# Run a single test
-python -m pytest tests/test_components.py::TestLinUCB::test_ucb_score_positive -v
-
-# Expected result: 52 passed, 0 warnings
