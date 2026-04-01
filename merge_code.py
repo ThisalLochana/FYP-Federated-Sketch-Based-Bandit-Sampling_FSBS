@@ -1,9 +1,9 @@
 import os
 
 # Files or folders to ignore
-IGNORE_LIST = {'node_modules', '.git', 'venv', '__pycache__', 'target', 'dist', '.gitignore', 'Test Results.txt', 'Test Architecture.md', 'Commands.md', 'microservices-demo', 'Chekpoint File', 'Details.md', 'merge_code.py', '.pytest_cache'}
+IGNORE_LIST = {'node_modules', '.git', 'venv', '__pycache__', 'target', 'dist', '.gitignore', 'Test Results.txt', 'Test Architecture.md', 'Commands.md', 'microservices-demo', 'Chekpoint File', 'Details.md', 'merge_code.py', '.pytest_cache', 'project_context.txt', 'validation_report.txt', 'baseline_metrics.txt', 'phase3_metrics.txt'}
 # File extensions to include (Note: added '.' to md for consistency)
-EXTENSIONS = {'.py', '.js', '.java', '.go', '.ts', '.yaml', '.yml', '.proto', '.md'}
+EXTENSIONS = {'.py', '.js', '.java', '.go', '.ts', '.yaml', '.yml', '.proto', '.md', '.txt'}
 
 def merge_files(output_filename="project_context.txt"):
     with open(output_filename, 'w', encoding='utf-8') as outfile:
@@ -15,12 +15,23 @@ def merge_files(output_filename="project_context.txt"):
                 # Check if file is in ignore list or has a blocked extension
                 if file in IGNORE_LIST:
                     continue
+                # 2. Check for "Dockerfile" OR the extensions (PUT IT HERE)
+                if file == "Dockerfile":
+                    file_path = os.path.join(root, file)
+                    outfile.write(f"\n{'='*50}\n")
+                    outfile.write(f"FILE: {file_path}\n")
+                    outfile.write(f"{'='*50}\n\n")
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as infile:
+                            outfile.write(infile.read())
+                    except Exception as e:
+                        outfile.write(f"Could not read file: {e}\n")
                     
                 if any(file.endswith(ext) for ext in EXTENSIONS):
                     file_path = os.path.join(root, file)
                     outfile.write(f"\n{'='*50}\n")
                     outfile.write(f"FILE: {file_path}\n")
-                    outfile.write(f"{'='*50}\n\n") # Fixed the syntax error here
+                    outfile.write(f"{'='*50}\n\n")
                     try:
                         with open(file_path, 'r', encoding='utf-8') as infile:
                             outfile.write(infile.read())

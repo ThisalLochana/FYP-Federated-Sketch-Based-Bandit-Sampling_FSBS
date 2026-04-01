@@ -1167,6 +1167,21 @@ service:
       processors: [batch]
       exporters: [debug]
 ==================================================
+FILE: .\fsbs-platform\reward-service\Dockerfile
+==================================================
+
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY reward_service.py .
+CMD ["python", "-u", "reward_service.py"]
+==================================================
+FILE: .\fsbs-platform\reward-service\requirements.txt
+==================================================
+
+requests==2.32.0
+==================================================
 FILE: .\fsbs-platform\reward-service\reward_service.py
 ==================================================
 
@@ -1523,6 +1538,39 @@ def main():
 if __name__ == '__main__':
     main()
 ==================================================
+FILE: .\fsbs-platform\sidecar\Dockerfile
+==================================================
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Create checkpoint directory inside the container
+RUN mkdir -p /data/checkpoints
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY fsbs/ ./fsbs/
+COPY main.py .
+
+ENV FSBS_SERVICE_NAME=unknown
+ENV FSBS_LISTEN_PORT=4317
+ENV FSBS_HTTP_PORT=8081
+ENV FSBS_FORWARD_ENDPOINT=otel-collector:4317
+ENV FSBS_ALPHA=1.0
+ENV FSBS_THRESHOLD=0.5
+ENV FSBS_CONFIDENCE_THRESHOLD=10
+ENV FSBS_METRICS_INTERVAL=10
+ENV FSBS_LOG_LEVEL=INFO
+ENV FSBS_CHECKPOINT_DIR=/data/checkpoints
+ENV FSBS_CHECKPOINT_INTERVAL=60
+
+EXPOSE 4317
+EXPOSE 8081
+
+CMD ["python", "-u", "main.py"]
+==================================================
 FILE: .\fsbs-platform\sidecar\main.py
 ==================================================
 
@@ -1844,6 +1892,26 @@ def serve():
 
 if __name__ == '__main__':
     serve()
+==================================================
+FILE: .\fsbs-platform\sidecar\requirements.txt
+==================================================
+
+# OTLP protocol — to receive and forward spans
+opentelemetry-api==1.28.0
+opentelemetry-sdk==1.28.0
+opentelemetry-exporter-otlp-proto-grpc==1.28.0
+opentelemetry-proto==1.28.0
+
+# gRPC server — sidecar listens for OTLP spans
+grpcio==1.68.0
+grpcio-tools==1.68.0
+protobuf==5.28.0
+
+# Math — small matrix operations for LinUCB
+numpy==2.1.0
+
+# Testing
+pytest==8.3.0
 ==================================================
 FILE: .\fsbs-platform\sidecar\fsbs\checkpoint.py
 ==================================================
