@@ -196,14 +196,16 @@ def analyze_trace(trace: Dict) -> Optional[Dict[str, Any]]:
         reward = 0.1
         reason = "routine"
 
-    # ── Compute arm index (same formula as sidecar) ──
+    # ── Compute arm index (must match sidecar's computation) ──
+    # The sidecar always has parent_services=[] → topo_hash=0
+    # We must use the SAME arm index or rewards go to wrong arms
     root_pid = root_span.get('processID', '')
     root_proc = processes.get(root_pid, {})
     root_svc = root_proc.get('serviceName', 'unknown')
     svc_id = SERVICE_CLUSTER_IDS.get(root_svc, 255)
 
-    topo_hash = compute_topo_hash(list(services))
-    arm_index = compute_arm_index(svc_id, topo_hash)
+    # Match sidecar: topo_hash=0 since sidecar has no parent info
+    arm_index = (svc_id << 4) & 0xFF
 
     # ── Compute context vector (same as sidecar) ──
     latency_bucket = compute_latency_bucket(total_duration_us)
@@ -214,9 +216,25 @@ def analyze_trace(trace: Dict) -> Optional[Dict[str, Any]]:
         0.5,  # novelty not available from Jaeger, use neutral value
     ]
 
+    # Build per-service arm entries so ALL services in the trace
+    # receive the reward — not just the root service
+    arm_entries = []
+    for svc in services:
+        svc_id = SERVICE_CLUSTER_IDS.get(svc, 255)
+        svc_arm = (svc_id << 4) & 0xFF
+        svc_context = [
+            latency_bucket / 7.0,
+            1.0 if has_error else 0.0,
+            svc_id / 255.0,
+            0.5,
+        ]
+        arm_entries.append({
+            'arm_index': svc_arm,
+            'context': svc_context,
+        })
+
     return {
-        'arm_index': arm_index,
-        'context': context,
+        'arm_entries': arm_entries,
         'reward': reward,
         'reason': reason,
         'trace_id': trace.get('traceID', ''),
@@ -310,14 +328,18 @@ def main():
             if analysis is None:
                 continue
 
-            # Send reward to sidecar
-            success = send_reward(
-                analysis['arm_index'],
-                analysis['context'],
-                analysis['reward'],
-            )
+            # Send reward to ALL service arms in the trace
+            all_sent = True
+            for entry in analysis['arm_entries']:
+                success = send_reward(
+                    entry['arm_index'],
+                    entry['context'],
+                    analysis['reward'],
+                )
+                if not success:
+                    all_sent = False
 
-            if success:
+            if all_sent:
                 rewards_this_cycle += 1
                 total_rewards_sent += 1
                 processed_traces.add(tid)
@@ -325,8 +347,9 @@ def main():
                     reward_summary.get(analysis['reason'], 0) + 1
                 )
 
+                arms_rewarded = [e['arm_index'] for e in analysis['arm_entries']]
                 logger.debug(
-                    f"  Reward: arm={analysis['arm_index']} "
+                    f"  Reward: arms={arms_rewarded} "
                     f"reward={analysis['reward']:.1f} "
                     f"reason={analysis['reason']} "
                     f"svc={analysis['root_service']} "

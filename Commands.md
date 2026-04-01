@@ -19,3 +19,7 @@ docker compose up -d
 
 # Show volume details
 docker volume inspect fsbs-platform_fsbs-checkpoint-data
+
+# docker compose down -v
+# docker compose up --build -d
+The -v flag removes the checkpoint volume. The system will cold-start with Thompson, then transition to LinUCB within ~10 minutes as the fixed reward service sends rewards to all 11 service arms.

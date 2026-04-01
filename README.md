@@ -413,3 +413,6 @@ Tests fail with numpy error	Use numpy==1.26.4 instead of numpy==2.1.0 in require
 
 ---
 
+# The -v flag removes the checkpoint volume. The system will cold-start with Thompson, then transition to LinUCB within ~10 minutes as the fixed reward service sends rewards to all 11 service arms.
+# docker compose down -v
+# docker compose up --build -d

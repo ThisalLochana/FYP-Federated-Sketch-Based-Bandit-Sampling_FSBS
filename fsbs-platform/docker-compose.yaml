@@ -56,7 +56,7 @@ services:
       FSBS_HTTP_PORT: "8081"                                   # ← ADD
       FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
       FSBS_ALPHA: "1.0"
-      FSBS_THRESHOLD: "0.5"
+      FSBS_THRESHOLD: "0.2"
       FSBS_CONFIDENCE_THRESHOLD: "10"
       FSBS_METRICS_INTERVAL: "10"
       FSBS_LOG_LEVEL: "INFO"
