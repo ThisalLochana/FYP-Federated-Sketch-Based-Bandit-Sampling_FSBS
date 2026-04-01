@@ -59,6 +59,8 @@ class FSBSSampler:
         force_sample_errors: bool = True,
         checkpoint_dir: str = "",                              # ← CHECKPOINT
         checkpoint_interval: float = 60.0,                     # ← CHECKPOINT
+        sketch_decay_factor: float = 0.9,          # ← ADD THIS
+        sketch_decay_interval: float = 300.0,      # ← ADD THIS (seconds)
     ):
         self.service_name = service_name
         self.force_sample_errors = force_sample_errors
@@ -74,6 +76,10 @@ class FSBSSampler:
         )
         self.thompson = ThompsonSampler(threshold=threshold)
         self.queue = MPSCQueue(capacity=4096)
+
+        # Sketch decay settings
+        self.sketch_decay_factor = sketch_decay_factor
+        self.sketch_decay_interval = sketch_decay_interval
 
         # Decision metrics
         self._total_spans = 0
@@ -218,14 +224,35 @@ class FSBSSampler:
         self.queue.push(record)
 
     def _background_worker(self):
-        """Background thread: drains queue → updates sketch."""
+        """Background thread: drains queue → updates sketch, periodic decay."""
         logger.info("Background sketch updater started")
+        last_decay_time = time.time()
+
         while self._running:
             if not self.queue.wait(timeout=1.0):
+                # Even if no items, check if decay is due
+                now = time.time()
+                if now - last_decay_time >= self.sketch_decay_interval:
+                    self.sketch.decay(self.sketch_decay_factor)
+                    last_decay_time = now
+                    logger.debug(
+                        f"Sketch decay applied (factor={self.sketch_decay_factor})"
+                    )
                 continue
+
             records = self.queue.drain(max_items=256)
             for record in records:
                 self.sketch.update(record.feature_key)
+
+            # Check if decay is due
+            now = time.time()
+            if now - last_decay_time >= self.sketch_decay_interval:
+                self.sketch.decay(self.sketch_decay_factor)
+                last_decay_time = now
+                logger.debug(
+                    f"Sketch decay applied (factor={self.sketch_decay_factor})"
+                )
+
         logger.info("Background sketch updater stopped")
 
     def process_reward(
@@ -304,6 +331,8 @@ class FSBSSampler:
             'queue_dropped': self.queue.dropped_count,
             'sketch_memory_bytes': self.sketch.memory_bytes,
             'bandit_memory_bytes': self.bandit.memory_bytes,
+            'sketch_decay_factor': self.sketch_decay_factor,
+            'sketch_decay_interval': self.sketch_decay_interval,
         }
 
         # Add checkpoint stats                                 # ← CHECKPOINT

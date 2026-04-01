@@ -102,6 +102,32 @@ class TestCountMinSketch:
         assert restored.estimate(42) == sketch.estimate(42)
         assert restored.estimate(99) == sketch.estimate(99)
 
+    def test_decay_reduces_counters(self):
+        """Decay should reduce all counters proportionally."""
+        sketch = CountMinSketch()
+        sketch.update(42, count=1000)
+        
+        before = sketch.estimate(42)
+        sketch.decay(0.9)
+        after = sketch.estimate(42)
+        
+        assert after < before
+        assert after == int(before * 0.9)
+
+    def test_decay_restores_novelty(self):
+        """After decay, novelty for old patterns should increase."""
+        sketch = CountMinSketch()
+        sketch.update(42, count=1000)
+        
+        novelty_before = sketch.novelty_score(42)
+        
+        # Simulate 10 decay cycles with no new observations
+        for _ in range(10):
+            sketch.decay(0.9)
+        
+        novelty_after = sketch.novelty_score(42)
+        assert novelty_after > novelty_before
+
 
 class TestFeatureExtractor:
     """Tests for the Feature Extractor."""

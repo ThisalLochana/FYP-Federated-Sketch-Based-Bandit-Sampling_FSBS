@@ -165,8 +165,36 @@ class CountMinSketch:
         for row in range(self.NUM_ROWS):
             for col in range(self.NUM_COLS):
                 self._counters[row][col] = 0
+
+    def decay(self, factor: float = 0.9) -> None:
+        """
+        Multiply all counters by `factor` (e.g., 0.9).
+        
+        This prevents counters from growing forever. Without decay,
+        after hours of running, every pattern looks "common" and
+        novelty scores converge to zero — the sketch stops being useful.
+        
+        With decay, old observations gradually fade, so the sketch
+        reflects RECENT traffic patterns, not all-time history.
+        
+        Example with factor=0.9 applied every 5 minutes:
+        - Counter at 1000 → 900 → 810 → 729 (fades over ~15 min)
+        - A pattern that STOPS appearing will fade to near-zero
+        - A pattern that KEEPS appearing stays high (new increments
+            offset the decay)
+        
+        Args:
+            factor: Multiplier in (0, 1). Lower = faster forgetting.
+                    0.9 is a safe default.
+        """
+        for row in range(self.NUM_ROWS):
+            for col in range(self.NUM_COLS):
+                self._counters[row][col] = int(
+                    self._counters[row][col] * factor
+                )
     
     @property
     def memory_bytes(self) -> int:
         """Return the memory footprint in bytes."""
         return self.NUM_ROWS * self.NUM_COLS * 4  # 8,192 bytes
+    
