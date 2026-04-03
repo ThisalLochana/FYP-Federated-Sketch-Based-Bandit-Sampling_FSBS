@@ -131,13 +131,51 @@ class FSBSTraceService(trace_service_pb2_grpc.TraceServiceServicer):
 
     def _decide_span(self, span, svc_name: str) -> bool:
         trace_id = span.trace_id.hex() if span.trace_id else ''
-        status_code = span.status.code
-        if status_code == 2:
+
+        # ── Error detection (check MULTIPLE indicators) ──
+        is_error = False
+
+        # Check 1: OTLP status code
+        if span.status.code == 2:
+            is_error = True
+
+        # Check 2: Span attributes / tags
+        if not is_error:
+            try:
+                for kv in span.attributes:
+                    key = kv.key
+                    val = kv.value
+                    # error=true tag
+                    if key == 'error' and val.bool_value is True:
+                        is_error = True
+                        break
+                    # otel.status_code=ERROR tag
+                    if key == 'otel.status_code' and val.string_value == 'ERROR':
+                        is_error = True
+                        break
+                    # HTTP 5xx status
+                    if key == 'http.status_code' and val.int_value >= 500:
+                        is_error = True
+                        break
+                    # gRPC error codes (codes 1-16 are errors)
+                    if key == 'rpc.grpc.status_code' and val.int_value > 0:
+                        is_error = True
+                        break
+            except Exception:
+                pass
+        
+        # Force-sample any error span
+        if is_error:
             self.trace_cache.put(trace_id, True)
+            logger.debug(f"Force-sampling error span: trace={trace_id[:16]} svc={svc_name}")
             return True
+
+        # Check trace cache for existing decision
         cached = self.trace_cache.get(trace_id)
         if cached is not None:
             return cached
+
+        # Normal bandit decision
         span_data = self._span_to_dict(span, svc_name, trace_id)
         decision = self.sampler.decide(span_data)
         self.trace_cache.put(trace_id, decision.should_sample)

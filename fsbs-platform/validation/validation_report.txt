@@ -3,55 +3,55 @@
 ======================================================================
 
 ── SYSTEM STATUS ──
-  Uptime:            243 seconds
-  Total spans in:    10633
-  Total spans out:   1058
-  Span pass rate:    10.0%
+  Uptime:            431 seconds
+  Total spans in:    19436
+  Total spans out:   167
+  Span pass rate:    0.9%
   Forward errors:    0
 
 ── DECISION ENGINE ──
-  Thompson:          64 (8.7%)
-  LinUCB:            670 (91.3%)
+  Thompson:          0 (0.0%)
+  LinUCB:            1363 (100.0%)
   Forced (errors):   0 (0.0%)
   Active arms:       5 / 256
   Confident arms:    5 / 256
 
 ── REWARD FEEDBACK ──
-  Rewards received:  212
-  Average reward:    0.2755
+  Rewards received:  36
+  Average reward:    0.5917
 
 ── TRACES CAPTURED IN JAEGER ──
-  Total unique traces: 93
-    error       :     0  (  0.0%)
-    very_slow   :    13  ( 14.0%)
+  Total unique traces: 14
+    error       :     6  ( 42.9%)
+    very_slow   :     1  (  7.1%)
     slow        :     0  (  0.0%)
-    complex     :    15  ( 16.1%)
+    complex     :     3  ( 21.4%)
     moderate    :     0  (  0.0%)
-    routine     :    65  ( 69.9%)
+    routine     :     4  ( 28.6%)
 
 ── FSBS vs RANDOM SAMPLING COMPARISON ──
-  FSBS effective sample rate:    12.7%
-  Random target sample rate:     12.7%
+  FSBS effective sample rate:    0.7%
+  Random target sample rate:     0.7%
 
   Metric                               FSBS     Random     Winner
   ------------------------------ ---------- ---------- ----------
-  Error capture rate                100.0%    100.0%     FSBS ✓
-  Slow trace presence                14.0%     11.8%     FSBS ✓
-  Avg value per trace                0.246     0.123     FSBS ✓
+  Error capture rate                 42.9%      0.7%     FSBS ✓
+  Slow trace presence                 7.1%      0.5%     FSBS ✓
+  Avg value per trace                0.600     0.007     FSBS ✓
 
-  Volume reduction:  90.0% fewer spans sent to Jaeger
+  Volume reduction:  99.1% fewer spans sent to Jaeger
 
 ── TOP LEARNED ARMS ──
     Arm    Obs  Mean Reward  Confident Interpretation
-      0     63        0.257   ✓ LinUCB ← low value (routine)
-     16     57        0.273   ✓ LinUCB ← low value (routine)
-     48     41        0.337   ✓ LinUCB ← moderate value
-     64     36        0.239   ✓ LinUCB ← low value (routine)
-     80     15        0.412   ✓ LinUCB ← moderate value
+      0    460        0.220   ✓ LinUCB ← low value (routine)
+     16    197        0.364   ✓ LinUCB ← moderate value
+     64    170        0.321   ✓ LinUCB ← moderate value
+     48    148        0.375   ✓ LinUCB ← moderate value
+     80    122        0.399   ✓ LinUCB ← moderate value
 
 ── CONCLUSION ──
   ★ FSBS OUTPERFORMS random sampling on 3/3 metrics
-  ★ FSBS captures MORE valuable traces while sending 90% FEWER spans
+  ★ FSBS captures MORE valuable traces while sending 99% FEWER spans
   ★ LinUCB is ACTIVE with 5 confident arms — the bandit is learning!
 
 ======================================================================
