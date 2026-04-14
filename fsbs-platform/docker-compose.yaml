@@ -41,35 +41,283 @@ services:
     mem_limit: 128m
 
   # ============================================================
-  # FSBS SIDECAR — the intelligent sampling engine          ← NEW
+  # FSBS SIDECARS — the intelligent sampling engines          ← NEW
   # ============================================================
   
-  fsbs-sidecar:                                              # ← NEW SERVICE
+  fsbs-sidecar-frontend:
     build:
       context: ./sidecar
       dockerfile: Dockerfile
-    container_name: fsbs-sidecar
+    container_name: fsbs-sidecar-frontend
     restart: unless-stopped
     environment:
-      FSBS_SERVICE_NAME: "fsbs-sidecar"
+      FSBS_SERVICE_NAME: "frontend"
       FSBS_LISTEN_PORT: "4317"
-      FSBS_HTTP_PORT: "8081"                                   # ← ADD
+      FSBS_HTTP_PORT: "8081"
       FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
       FSBS_ALPHA: "1.0"
       FSBS_THRESHOLD: "0.2"
       FSBS_CONFIDENCE_THRESHOLD: "10"
-      FSBS_METRICS_INTERVAL: "10"
       FSBS_LOG_LEVEL: "INFO"
       FSBS_CHECKPOINT_DIR: "/data/checkpoints"
       FSBS_CHECKPOINT_INTERVAL: "60"
     ports:
-      - "4320:4317"     # host:4320 for debugging
-      - "8081:8081"                                            # ← ADD
+      - "8081:8081"
     volumes:
-      - fsbs-checkpoint-data:/data/checkpoints
+      - fsbs-checkpoint-frontend:/data/checkpoints
     depends_on:
       - otel-collector
-    mem_limit: 256m
+    mem_limit: 64m
+
+  fsbs-sidecar-checkoutservice:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: fsbs-sidecar-checkoutservice
+    restart: unless-stopped
+    environment:
+      FSBS_SERVICE_NAME: "checkoutservice"
+      FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8082"
+      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
+      FSBS_ALPHA: "1.0"
+      FSBS_THRESHOLD: "0.2"
+      FSBS_CONFIDENCE_THRESHOLD: "10"
+      FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
+    ports:
+      - "8082:8082"
+    volumes:
+      - fsbs-checkpoint-checkout:/data/checkpoints
+    depends_on:
+      - otel-collector
+    mem_limit: 64m
+
+  fsbs-sidecar-productcatalogservice:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: fsbs-sidecar-productcatalogservice
+    restart: unless-stopped
+    environment:
+      FSBS_SERVICE_NAME: "productcatalogservice"
+      FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8083"
+      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
+      FSBS_ALPHA: "1.0"
+      FSBS_THRESHOLD: "0.2"
+      FSBS_CONFIDENCE_THRESHOLD: "10"
+      FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
+    ports:
+      - "8083:8083"
+    volumes:
+      - fsbs-checkpoint-productcatalog:/data/checkpoints
+    depends_on:
+      - otel-collector
+    mem_limit: 64m
+
+  fsbs-sidecar-currencyservice:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: fsbs-sidecar-currencyservice
+    restart: unless-stopped
+    environment:
+      FSBS_SERVICE_NAME: "currencyservice"
+      FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8084"
+      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
+      FSBS_ALPHA: "1.0"
+      FSBS_THRESHOLD: "0.2"
+      FSBS_CONFIDENCE_THRESHOLD: "10"
+      FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
+    ports:
+      - "8084:8084"
+    volumes:
+      - fsbs-checkpoint-currency:/data/checkpoints
+    depends_on:
+      - otel-collector
+    mem_limit: 64m
+
+  fsbs-sidecar-paymentservice:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: fsbs-sidecar-paymentservice
+    restart: unless-stopped
+    environment:
+      FSBS_SERVICE_NAME: "paymentservice"
+      FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8085"
+      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
+      FSBS_ALPHA: "1.0"
+      FSBS_THRESHOLD: "0.2"
+      FSBS_CONFIDENCE_THRESHOLD: "10"
+      FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
+    ports:
+      - "8085:8085"
+    volumes:
+      - fsbs-checkpoint-payment:/data/checkpoints
+    depends_on:
+      - otel-collector
+    mem_limit: 64m
+
+  fsbs-sidecar-shippingservice:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: fsbs-sidecar-shippingservice
+    restart: unless-stopped
+    environment:
+      FSBS_SERVICE_NAME: "shippingservice"
+      FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8086"
+      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
+      FSBS_ALPHA: "1.0"
+      FSBS_THRESHOLD: "0.2"
+      FSBS_CONFIDENCE_THRESHOLD: "10"
+      FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
+    ports:
+      - "8086:8086"
+    volumes:
+      - fsbs-checkpoint-shipping:/data/checkpoints
+    depends_on:
+      - otel-collector
+    mem_limit: 64m
+
+  fsbs-sidecar-emailservice:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: fsbs-sidecar-emailservice
+    restart: unless-stopped
+    environment:
+      FSBS_SERVICE_NAME: "emailservice"
+      FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8087"
+      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
+      FSBS_ALPHA: "1.0"
+      FSBS_THRESHOLD: "0.2"
+      FSBS_CONFIDENCE_THRESHOLD: "10"
+      FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
+    ports:
+      - "8087:8087"
+    volumes:
+      - fsbs-checkpoint-email:/data/checkpoints
+    depends_on:
+      - otel-collector
+    mem_limit: 64m
+
+  fsbs-sidecar-cartservice:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: fsbs-sidecar-cartservice
+    restart: unless-stopped
+    environment:
+      FSBS_SERVICE_NAME: "cartservice"
+      FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8088"
+      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
+      FSBS_ALPHA: "1.0"
+      FSBS_THRESHOLD: "0.2"
+      FSBS_CONFIDENCE_THRESHOLD: "10"
+      FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
+    ports:
+      - "8088:8088"
+    volumes:
+      - fsbs-checkpoint-cart:/data/checkpoints
+    depends_on:
+      - otel-collector
+    mem_limit: 64m
+
+  fsbs-sidecar-recommendationservice:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: fsbs-sidecar-recommendationservice
+    restart: unless-stopped
+    environment:
+      FSBS_SERVICE_NAME: "recommendationservice"
+      FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8089"
+      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
+      FSBS_ALPHA: "1.0"
+      FSBS_THRESHOLD: "0.2"
+      FSBS_CONFIDENCE_THRESHOLD: "10"
+      FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
+    ports:
+      - "8089:8089"
+    volumes:
+      - fsbs-checkpoint-recommendation:/data/checkpoints
+    depends_on:
+      - otel-collector
+    mem_limit: 64m
+
+  fsbs-sidecar-adservice:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: fsbs-sidecar-adservice
+    restart: unless-stopped
+    environment:
+      FSBS_SERVICE_NAME: "adservice"
+      FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8090"
+      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
+      FSBS_ALPHA: "1.0"
+      FSBS_THRESHOLD: "0.2"
+      FSBS_CONFIDENCE_THRESHOLD: "10"
+      FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
+    ports:
+      - "8090:8090"
+    volumes:
+      - fsbs-checkpoint-ad:/data/checkpoints
+    depends_on:
+      - otel-collector
+    mem_limit: 64m
+
+  fsbs-sidecar-loadgenerator:
+    build:
+      context: ./sidecar
+      dockerfile: Dockerfile
+    container_name: fsbs-sidecar-loadgenerator
+    restart: unless-stopped
+    environment:
+      FSBS_SERVICE_NAME: "loadgenerator"
+      FSBS_LISTEN_PORT: "4317"
+      FSBS_HTTP_PORT: "8091"
+      FSBS_FORWARD_ENDPOINT: "otel-collector:4317"
+      FSBS_ALPHA: "1.0"
+      FSBS_THRESHOLD: "0.2"
+      FSBS_CONFIDENCE_THRESHOLD: "10"
+      FSBS_LOG_LEVEL: "INFO"
+      FSBS_CHECKPOINT_DIR: "/data/checkpoints"
+      FSBS_CHECKPOINT_INTERVAL: "60"
+    ports:
+      - "8091:8091"
+    volumes:
+      - fsbs-checkpoint-loadgen:/data/checkpoints
+    depends_on:
+      - otel-collector
+    mem_limit: 64m
 
   # ============================================================
   # MICROSERVICES — now pointing to fsbs-sidecar
@@ -84,7 +332,7 @@ services:
     environment:
       PORT: "8080"
       ENABLE_TRACING: "1"
-      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar:4317"            # ← CHANGED
+      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar-frontend:4317"
       PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
       CURRENCY_SERVICE_ADDR: "currencyservice:7000"
       CART_SERVICE_ADDR: "cartservice:7070"
@@ -93,10 +341,10 @@ services:
       CHECKOUT_SERVICE_ADDR: "checkoutservice:5050"
       AD_SERVICE_ADDR: "adservice:9555"
       SHOPPING_ASSISTANT_SERVICE_ADDR: "shoppingassistantservice:8080"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-frontend:4317"
       OTEL_SERVICE_NAME: "frontend"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - fsbs-sidecar-frontend
       - productcatalogservice
       - cartservice
       - currencyservice
@@ -113,11 +361,11 @@ services:
     environment:
       PORT: "3550"
       ENABLE_TRACING: "1"
-      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar:4317"            # ← CHANGED
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar-productcatalogservice:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-productcatalogservice:4317"
       OTEL_SERVICE_NAME: "productcatalogservice"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - fsbs-sidecar-productcatalogservice
     mem_limit: 128m
 
   cartservice:
@@ -127,11 +375,11 @@ services:
     environment:
       ENABLE_TRACING: "1"
       REDIS_ADDR: "redis-cart:6379"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-cartservice:4317"
       OTEL_SERVICE_NAME: "cartservice"
     depends_on:
       - redis-cart
-      - fsbs-sidecar                                          # ← CHANGED
+      - fsbs-sidecar-cartservice
     mem_limit: 256m
 
   currencyservice:
@@ -141,11 +389,11 @@ services:
     environment:
       PORT: "7000"
       ENABLE_TRACING: "1"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-currencyservice:4317"
       OTEL_SERVICE_NAME: "currencyservice"
       DISABLE_PROFILER: "1"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - fsbs-sidecar-currencyservice
     mem_limit: 128m
 
   paymentservice:
@@ -155,11 +403,11 @@ services:
     environment:
       PORT: "50051"
       ENABLE_TRACING: "1"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-paymentservice:4317"
       OTEL_SERVICE_NAME: "paymentservice"
       DISABLE_PROFILER: "1"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - fsbs-sidecar-paymentservice
     mem_limit: 128m
 
   shippingservice:
@@ -169,11 +417,11 @@ services:
     environment:
       PORT: "50051"
       ENABLE_TRACING: "1"
-      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar:4317"            # ← CHANGED
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar-shippingservice:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-shippingservice:4317"
       OTEL_SERVICE_NAME: "shippingservice"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - fsbs-sidecar-shippingservice
     mem_limit: 128m
 
   emailservice:
@@ -183,10 +431,10 @@ services:
     environment:
       PORT: "8080"
       ENABLE_TRACING: "1"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-emailservice:4317"
       OTEL_SERVICE_NAME: "emailservice"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - fsbs-sidecar-emailservice
     mem_limit: 128m
 
   checkoutservice:
@@ -196,17 +444,17 @@ services:
     environment:
       PORT: "5050"
       ENABLE_TRACING: "1"
-      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar:4317"            # ← CHANGED
+      COLLECTOR_SERVICE_ADDR: "fsbs-sidecar-checkoutservice:4317"
       PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
       SHIPPING_SERVICE_ADDR: "shippingservice:50051"
       PAYMENT_SERVICE_ADDR: "paymentservice:50051"
       EMAIL_SERVICE_ADDR: "emailservice:8080"
       CURRENCY_SERVICE_ADDR: "currencyservice:7000"
       CART_SERVICE_ADDR: "cartservice:7070"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-checkoutservice:4317"
       OTEL_SERVICE_NAME: "checkoutservice"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - fsbs-sidecar-checkoutservice
       - productcatalogservice
       - cartservice
       - currencyservice
@@ -223,11 +471,11 @@ services:
       PORT: "8080"
       ENABLE_TRACING: "1"
       PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-recommendationservice:4317"
       OTEL_SERVICE_NAME: "recommendationservice"
       OTEL_PYTHON_LOG_CORRELATION: "true"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - fsbs-sidecar-recommendationservice
       - productcatalogservice
     mem_limit: 256m
 
@@ -238,10 +486,10 @@ services:
     environment:
       PORT: "9555"
       ENABLE_TRACING: "1"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-adservice:4317"
       OTEL_SERVICE_NAME: "adservice"
     depends_on:
-      - fsbs-sidecar                                          # ← CHANGED
+      - fsbs-sidecar-adservice
     mem_limit: 512m
 
   # ============================================================
@@ -256,17 +504,18 @@ services:
       ENABLE_TRACING: "1"
       FRONTEND_ADDR: "frontend:8080"
       USERS: "10"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar:4317"  # ← CHANGED
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-loadgenerator:4317"
       OTEL_SERVICE_NAME: "loadgenerator"
     depends_on:
       - frontend
+      - fsbs-sidecar-loadgenerator
     mem_limit: 256m
 
   # ============================================================
   # REWARD SERVICE — closes the learning feedback loop
   # ============================================================
 
-  reward-service:                                              # ← NEW SERVICE
+  reward-service:
     build:
       context: ./reward-service
       dockerfile: Dockerfile
@@ -274,15 +523,33 @@ services:
     restart: unless-stopped
     environment:
       JAEGER_URL: "http://jaeger:16686"
-      SIDECAR_URL: "http://fsbs-sidecar:8081"
       POLL_INTERVAL: "30"
       TRACES_PER_POLL: "30"
       LOOKBACK_SECONDS: "60"
     depends_on:
       - jaeger
-      - fsbs-sidecar
+      - fsbs-sidecar-frontend
+      - fsbs-sidecar-productcatalogservice
+      - fsbs-sidecar-cartservice
+      - fsbs-sidecar-currencyservice
+      - fsbs-sidecar-checkoutservice
+      - fsbs-sidecar-paymentservice
+      - fsbs-sidecar-shippingservice
+      - fsbs-sidecar-emailservice
+      - fsbs-sidecar-recommendationservice
+      - fsbs-sidecar-adservice
+      - fsbs-sidecar-loadgenerator
     mem_limit: 128m
 
 volumes:
-  fsbs-checkpoint-data:
-    driver: local
+  fsbs-checkpoint-frontend:
+  fsbs-checkpoint-checkout:
+  fsbs-checkpoint-productcatalog:
+  fsbs-checkpoint-currency:
+  fsbs-checkpoint-payment:
+  fsbs-checkpoint-shipping:
+  fsbs-checkpoint-email:
+  fsbs-checkpoint-cart:
+  fsbs-checkpoint-recommendation:
+  fsbs-checkpoint-ad:
+  fsbs-checkpoint-loadgen:

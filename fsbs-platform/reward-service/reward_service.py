@@ -42,7 +42,19 @@ logger = logging.getLogger('reward-service')
 # ── Configuration ──────────────────────────────────────────────
 
 JAEGER_URL = os.environ.get('JAEGER_URL', 'http://jaeger:16686')
-SIDECAR_URL = os.environ.get('SIDECAR_URL', 'http://fsbs-sidecar:8081')
+SIDECAR_URLS = [
+    'http://fsbs-sidecar-frontend:8081',
+    'http://fsbs-sidecar-checkoutservice:8082',
+    'http://fsbs-sidecar-productcatalogservice:8083',
+    'http://fsbs-sidecar-currencyservice:8084',
+    'http://fsbs-sidecar-paymentservice:8085',
+    'http://fsbs-sidecar-shippingservice:8086',
+    'http://fsbs-sidecar-emailservice:8087',
+    'http://fsbs-sidecar-cartservice:8088',
+    'http://fsbs-sidecar-recommendationservice:8089',
+    'http://fsbs-sidecar-adservice:8090',
+    'http://fsbs-sidecar-loadgenerator:8091',
+]
 POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', '30'))
 TRACES_PER_POLL = int(os.environ.get('TRACES_PER_POLL', '30'))
 LOOKBACK_SECONDS = int(os.environ.get('LOOKBACK_SECONDS', '60'))
@@ -250,24 +262,22 @@ def analyze_trace(trace: Dict) -> Optional[Dict[str, Any]]:
 # ── Send reward to sidecar ────────────────────────────────────
 
 def send_reward(arm_index: int, context: list, reward: float) -> bool:
-    """POST a reward signal to the sidecar HTTP API."""
-    try:
-        resp = requests.post(
-            f"{SIDECAR_URL}/reward",
-            json={
-                'arm_index': arm_index,
-                'context': context,
-                'reward': reward,
-            },
-            timeout=5,
-        )
-        return resp.status_code == 200
-    except requests.exceptions.ConnectionError:
-        logger.warning(f"Cannot connect to sidecar at {SIDECAR_URL}")
-        return False
-    except Exception as e:
-        logger.error(f"Send reward error: {e}")
-        return False
+    """Send reward to ALL sidecars (broadcast)."""
+    success_count = 0
+    for url in SIDECAR_URLS:
+        try:
+            resp = requests.post(
+                f"{url}/reward",
+                json={'arm_index': arm_index, 'context': context, 'reward': reward},
+                timeout=2,
+            )
+            if resp.status_code == 200:
+                success_count += 1
+        except Exception as e:
+            logger.warning(f"Failed to send reward to {url}: {e}")
+    
+    # Consider it successful if at least one sidecar received it
+    return success_count > 0
 
 
 # ── Main loop ─────────────────────────────────────────────────
@@ -276,7 +286,7 @@ def main():
     logger.info("=" * 60)
     logger.info("FSBS Reward Service starting")
     logger.info(f"  Jaeger:     {JAEGER_URL}")
-    logger.info(f"  Sidecar:    {SIDECAR_URL}")
+    logger.info(f"  Sidecar:    {SIDECAR_URLS}")
     logger.info(f"  Poll every: {POLL_INTERVAL}s")
     logger.info(f"  Lookback:   {LOOKBACK_SECONDS}s")
     logger.info("=" * 60)
