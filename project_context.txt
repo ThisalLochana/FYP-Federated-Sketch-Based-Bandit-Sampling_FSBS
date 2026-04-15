@@ -676,7 +676,7 @@ FILE: .\fsbs-platform\docker-compose.yaml
 # Microservices → FSBS Sidecar → OTel Collector → Jaeger
 
 # Define common values
-x-fsbs-config: &default-threshold "0.05"
+x-fsbs-config: &default-threshold "0.06"
 services:
 
   # ============================================================
@@ -1049,9 +1049,13 @@ services:
     container_name: cartservice
     restart: unless-stopped
     environment:
-      ENABLE_TRACING: "1"
       REDIS_ADDR: "redis-cart:6379"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-cartservice:4317"
+      # .NET SDK configuration:
+      ASPNETCORE_URLS: "http://*:7070"
+      # OTLP configuration (no http:// prefix):
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-cartservice:4317"  # .NET needs http://
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "cartservice"
     depends_on:
       - redis-cart
@@ -1092,9 +1096,15 @@ services:
     restart: unless-stopped
     environment:
       PORT: "50051"
-      ENABLE_TRACING: "1"
+      # CRITICAL: Set DISABLE_TRACING=0 to ENABLE tracing
+      DISABLE_TRACING: "0"  # ← This was probably "1" before!
+      DISABLE_PROFILER: "1"
+      DISABLE_STATS: "1"
+      # Go services need BOTH variables:
       COLLECTOR_SERVICE_ADDR: "fsbs-sidecar-shippingservice:4317"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-shippingservice:4317"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "fsbs-sidecar-shippingservice:4317"  # No http://
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "shippingservice"
     depends_on:
       - fsbs-sidecar-shippingservice
@@ -1107,8 +1117,14 @@ services:
     environment:
       PORT: "8080"
       ENABLE_TRACING: "1"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-emailservice:4317"
+      # Python services need explicit exporter config:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "fsbs-sidecar-emailservice:4317"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "emailservice"
+      OTEL_PYTHON_LOG_CORRELATION: "true"
+      # Disable GCP-specific features:
+      DISABLE_PROFILER: "1"
     depends_on:
       - fsbs-sidecar-emailservice
     mem_limit: 128m
@@ -1147,9 +1163,14 @@ services:
       PORT: "8080"
       ENABLE_TRACING: "1"
       PRODUCT_CATALOG_SERVICE_ADDR: "productcatalogservice:3550"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-recommendationservice:4317"
+      # Python services need explicit exporter config:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "fsbs-sidecar-recommendationservice:4317"
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "recommendationservice"
       OTEL_PYTHON_LOG_CORRELATION: "true"
+      # Disable GCP-specific features:
+      DISABLE_PROFILER: "1"
     depends_on:
       - fsbs-sidecar-recommendationservice
       - productcatalogservice
@@ -1161,8 +1182,14 @@ services:
     restart: unless-stopped
     environment:
       PORT: "9555"
-      ENABLE_TRACING: "1"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-adservice:4317"
+      # CRITICAL: Set DISABLE_TRACING=0 to ENABLE tracing
+      DISABLE_TRACING: "0"  # ← This was probably "1" before!
+      DISABLE_PROFILER: "1"
+      DISABLE_STATS: "1"
+      # Java needs explicit exporter config:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://fsbs-sidecar-adservice:4317"  # Java SDK needs http://
+      OTEL_TRACES_EXPORTER: "otlp"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "adservice"
     depends_on:
       - fsbs-sidecar-adservice
@@ -2245,52 +2272,74 @@ class FSBSTraceService(trace_service_pb2_grpc.TraceServiceServicer):
     def _decide_span(self, span, svc_name: str) -> bool:
         trace_id = span.trace_id.hex() if span.trace_id else ''
 
-        # ── Error detection (check MULTIPLE indicators) ──
+        # ── COMPREHENSIVE ERROR DETECTION (gRPC + HTTP) ──
         is_error = False
 
-        # Check 1: OTLP status code
+        # Check 1: OTLP status code (HTTP services)
         if span.status.code == 2:
             is_error = True
 
-        # Check 2: Span attributes / tags
+        # Check 2-5: Span attributes (gRPC uses these!)
         if not is_error:
             try:
                 for kv in span.attributes:
                     key = kv.key
                     val = kv.value
+                    
+                    # gRPC status codes (1-16 are errors, 0 is OK)
+                    if key == 'rpc.grpc.status_code':
+                        code = val.int_value if val.HasField('int_value') else 0
+                        if code > 0:
+                            is_error = True
+                            break
+                    
                     # error=true tag
-                    if key == 'error' and val.bool_value is True:
-                        is_error = True
-                        break
-                    # otel.status_code=ERROR tag
-                    if key == 'otel.status_code' and val.string_value == 'ERROR':
-                        is_error = True
-                        break
-                    # HTTP 5xx status
-                    if key == 'http.status_code' and val.int_value >= 500:
-                        is_error = True
-                        break
-                    # gRPC error codes (codes 1-16 are errors)
-                    if key == 'rpc.grpc.status_code' and val.int_value > 0:
-                        is_error = True
-                        break
-            except Exception:
-                pass
+                    if key == 'error':
+                        if val.HasField('bool_value') and val.bool_value is True:
+                            is_error = True
+                            break
+                    
+                    # otel.status_code=ERROR
+                    if key == 'otel.status_code':
+                        if val.HasField('string_value') and val.string_value == 'ERROR':
+                            is_error = True
+                            break
+                    
+                    # HTTP 5xx errors
+                    if key == 'http.status_code':
+                        code = val.int_value if val.HasField('int_value') else 0
+                        if code >= 500:
+                            is_error = True
+                            break
+            except Exception as e:
+                logger.warning(f"Error checking span attributes: {e}")
         
-        # Force-sample any error span
-        if is_error:
-            self.trace_cache.put(trace_id, True)
-            logger.debug(f"Force-sampling error span: trace={trace_id[:16]} svc={svc_name}")
-            return True
+        # Check 6: Exception events (gRPC services emit these)
+        if not is_error and hasattr(span, 'events') and span.events:
+            for event in span.events:
+                event_name = event.name.lower()
+                if 'exception' in event_name or 'error' in event_name:
+                    is_error = True
+                    break
 
         # Check trace cache for existing decision
         cached = self.trace_cache.get(trace_id)
         if cached is not None:
             return cached
 
-        # Normal bandit decision
+        # Build span_data dict
         span_data = self._span_to_dict(span, svc_name, trace_id)
+        
+        # ── KEY FIX: Pass is_error flag to sampler ──
+        span_data['is_error'] = is_error  # ← ADD THIS LINE
+        
+        # Let sampler make the decision (it will force-sample errors)
         decision = self.sampler.decide(span_data)
+        
+        # Log if it was force-sampled
+        if is_error and decision.should_sample:
+            logger.info(f" FORCE SAMPLE ERROR: trace={trace_id[:16]} svc={svc_name}")
+        
         self.trace_cache.put(trace_id, decision.should_sample)
         return decision.should_sample
 
@@ -4132,9 +4181,10 @@ class FSBSSampler:
         novelty = self.sketch.novelty_score(fv.packed_key)
         fv.novelty_score = novelty
 
-        # Step 3: Force-sample errors
-        if self.force_sample_errors and fv.has_error:
-            self._forced_samples += 1
+        # Step 3: Force-sample errors (check span_data for is_error flag)
+        is_error = span_data.get('is_error', False) or fv.has_error  # ← ADD THIS
+        if self.force_sample_errors and is_error:
+            self._forced_samples += 1  # ← This counter now increments!
             self._sampled_spans += 1
             decision = SamplingDecision(
                 should_sample=True,
@@ -5766,15 +5816,33 @@ def run_error_burst(injector: AnomalyInjector, count: int = 10):
         injector.set_currency(random.choice(CURRENCIES))
         time.sleep(0.1)
 
+def run_slow_traffic(injector: AnomalyInjector, count: int = 10):
+    """Generate intentionally slow requests."""
+    logger.info(f"Generating {count} slow requests...")
+    for i in range(count):
+        # Browse many products in sequence to create long traces
+        for _ in range(5):
+            product = random.choice(PRODUCT_IDS)
+            injector.browse_product(product)
+            time.sleep(0.5)  # Small delay between requests
+        
+        # Add multiple items to cart
+        for _ in range(3):
+            product = random.choice(PRODUCT_IDS)
+            injector.add_to_cart(product, quantity=random.randint(1, 5))
+            time.sleep(0.3)
+        
+        time.sleep(1)
 
 def run_mixed_traffic(injector: AnomalyInjector, duration_minutes: float = 5):
     """
     Run a realistic mix of traffic for the specified duration.
     
     Traffic mix:
-      - 60% routine browsing (low value)
-      - 25% checkout flows (high value) 
-      - 15% error-prone requests (highest value)
+      - 50% routine browsing (low value)
+      - 20% checkout flows (high value) 
+      - 20% slow traces (high value)      ← UPDATED
+      - 10% error-prone requests (highest value)  ← UPDATED
     """
     end_time = time.time() + (duration_minutes * 60)
     cycle = 0
@@ -5787,15 +5855,18 @@ def run_mixed_traffic(injector: AnomalyInjector, duration_minutes: float = 5):
             f"({elapsed:.1f}/{duration_minutes:.1f} min) ──"
         )
 
-        # 60% routine
-        run_normal_traffic(injector, count=12)
+        # 50% routine browsing
+        run_normal_traffic(injector, count=10)  # ← REDUCED from 12
 
-        # 25% checkout
+        # 20% checkout flows
         run_checkout_traffic(injector, count=3)
 
-        # 15% errors (every other cycle to create bursts)
+        # 20% slow traces (every cycle)  ← NEW
+        run_slow_traffic(injector, count=4)
+
+        # 10% errors (every other cycle to create bursts)
         if cycle % 2 == 0:
-            run_error_burst(injector, count=5)
+            run_error_burst(injector, count=5)  # ← KEPT same
 
         # Log stats
         s = injector.stats
@@ -5810,7 +5881,6 @@ def run_mixed_traffic(injector: AnomalyInjector, duration_minutes: float = 5):
 
     logger.info("Traffic generation complete!")
     logger.info(f"Final stats: {injector.stats}")
-
 
 def main():
     logger.info("=" * 60)

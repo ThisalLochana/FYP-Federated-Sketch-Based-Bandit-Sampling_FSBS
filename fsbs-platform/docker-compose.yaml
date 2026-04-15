@@ -2,7 +2,7 @@
 # Microservices → FSBS Sidecar → OTel Collector → Jaeger
 
 # Define common values
-x-fsbs-config: &default-threshold "0.06"
+x-fsbs-config: &default-threshold "0.05"
 services:
 
   # ============================================================

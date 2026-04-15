@@ -1,8 +1,9 @@
 r"""
 FSBS Validation — compares FSBS sampling against random sampling baseline.
+Updated for multi-sidecar architecture (11 sidecars).
 
 This script:
-  1. Collects current FSBS metrics from the sidecar
+  1. Collects metrics from ALL sidecars (frontend, productcatalog, cart, etc.)
   2. Fetches traces from Jaeger
   3. Analyzes what FSBS captured vs what it dropped
   4. Simulates what RANDOM sampling would have captured
@@ -13,7 +14,7 @@ Usage:
   cd D:\IIT\...\fsbs-platform
   python validation\validate_fsbs.py
 
-Run AFTER the anomaly injector has completed (or after 10+ min of traffic).
+Run AFTER the anomaly injector has completed (or after 60+ min of traffic).
 """
 
 import json
@@ -32,49 +33,105 @@ logging.basicConfig(
 logger = logging.getLogger('validator')
 
 JAEGER_URL = "http://localhost:16686"
-SIDECAR_URL = "http://localhost:8081"
+
+# ALL 11 SIDECAR URLs
+SIDECAR_URLS = {
+    'frontend':        'http://localhost:8081',
+    'checkout':        'http://localhost:8082',
+    'productcatalog':  'http://localhost:8083',
+    'currency':        'http://localhost:8084',
+    'payment':         'http://localhost:8085',
+    'shipping':        'http://localhost:8086',
+    'email':           'http://localhost:8087',
+    'cart':            'http://localhost:8088',
+    'recommendation':  'http://localhost:8089',
+    'ad':              'http://localhost:8090',
+    'loadgen':         'http://localhost:8091',
+}
 
 
-# ── Data Collection ───────────────────────────────────────────
+# ── Data Collection (Multi-Sidecar) ──────────────────────────
 
-def fetch_sidecar_metrics() -> Dict:
-    """Get current sidecar metrics."""
-    try:
-        r = requests.get(f"{SIDECAR_URL}/metrics", timeout=5)
-        return r.json()
-    except Exception as e:
-        logger.error(f"Cannot reach sidecar: {e}")
-        return {}
-
-
-def fetch_sidecar_arms() -> Dict:
-    """Get arm statistics."""
-    try:
-        r = requests.get(f"{SIDECAR_URL}/arms", timeout=5)
-        return r.json()
-    except Exception as e:
-        logger.error(f"Cannot reach sidecar arms: {e}")
-        return {}
+def fetch_all_sidecar_metrics() -> Dict[str, Dict]:
+    """Get metrics from ALL sidecars."""
+    all_metrics = {}
+    for name, url in SIDECAR_URLS.items():
+        try:
+            r = requests.get(f"{url}/metrics", timeout=5)
+            all_metrics[name] = r.json()
+        except Exception as e:
+            logger.warning(f"Cannot reach {name} sidecar: {e}")
+            all_metrics[name] = None
+    return all_metrics
 
 
-def fetch_sidecar_decisions(limit: int = 200) -> List[Dict]:
-    """Get recent decisions."""
-    try:
-        r = requests.get(
-            f"{SIDECAR_URL}/decisions",
-            params={'limit': limit},
-            timeout=5,
-        )
-        return r.json().get('decisions', [])
-    except Exception as e:
-        logger.error(f"Cannot reach sidecar decisions: {e}")
-        return []
+def fetch_all_sidecar_arms() -> Dict[str, Dict]:
+    """Get arm statistics from ALL sidecars."""
+    all_arms = {}
+    for name, url in SIDECAR_URLS.items():
+        try:
+            r = requests.get(f"{url}/arms", timeout=5)
+            all_arms[name] = r.json()
+        except Exception as e:
+            logger.warning(f"Cannot reach {name} sidecar arms: {e}")
+            all_arms[name] = None
+    return all_arms
+
+
+def aggregate_metrics(all_metrics: Dict[str, Dict]) -> Dict:
+    """Combine metrics from all sidecars into cluster-wide totals."""
+    valid = {k: v for k, v in all_metrics.items() if v is not None}
+    
+    if not valid:
+        return None
+    
+    # Sum up all the counters
+    total_spans_in = sum(v['service']['total_spans_in'] for v in valid.values())
+    total_spans_out = sum(v['service']['total_spans_out'] for v in valid.values())
+    thompson = sum(v['sampler']['thompson_decisions'] for v in valid.values())
+    linucb = sum(v['sampler']['linucb_decisions'] for v in valid.values())
+    forced = sum(v['sampler']['forced_samples'] for v in valid.values())
+    rewards = sum(v['sampler']['rewards_received'] for v in valid.values())
+    
+    # Weighted average reward (by number of rewards)
+    total_reward_value = sum(
+        v['sampler']['rewards_received'] * v['sampler']['avg_reward'] 
+        for v in valid.values()
+        if v['sampler']['rewards_received'] > 0
+    )
+    avg_reward = total_reward_value / rewards if rewards > 0 else 0.0
+    
+    # Count unique active/confident arms across all sidecars
+    all_active_arms = set()
+    all_confident_arms = set()
+    for v in valid.values():
+        # Collect arm indices (you'd need to query /arms for this)
+        all_active_arms.add(v['sampler']['active_arms'])
+        all_confident_arms.add(v['sampler']['confident_arms'])
+    
+    total_active = sum(v['sampler']['active_arms'] for v in valid.values())
+    total_confident = sum(v['sampler']['confident_arms'] for v in valid.values())
+    
+    return {
+        'total_spans_in': total_spans_in,
+        'total_spans_out': total_spans_out,
+        'sample_rate': total_spans_out / total_spans_in if total_spans_in > 0 else 0,
+        'thompson_decisions': thompson,
+        'linucb_decisions': linucb,
+        'forced_samples': forced,
+        'rewards_received': rewards,
+        'avg_reward': avg_reward,
+        'active_arms': total_active,
+        'confident_arms': total_confident,
+        'num_sidecars_alive': len(valid),
+        'num_sidecars_total': len(all_metrics),
+    }
 
 
 def fetch_jaeger_traces(
     service: str = 'frontend',
     limit: int = 500,
-    lookback: str = '1h',
+    lookback: str = '2h',
 ) -> List[Dict]:
     """Fetch traces from Jaeger."""
     try:
@@ -171,11 +228,6 @@ def simulate_random_sampling(
 ) -> Dict:
     """
     Simulate what RANDOM sampling would capture.
-    
-    Random sampling picks each trace with probability = sample_rate,
-    regardless of the trace's content. This is the baseline to beat.
-    
-    We run multiple simulations to get stable statistics.
     """
     classifications = [classify_trace(t) for t in traces]
     total = len(classifications)
@@ -240,28 +292,28 @@ def simulate_random_sampling(
 
 def run_validation():
     logger.info("=" * 70)
-    logger.info("FSBS VALIDATION — FINAL ANALYSIS")
+    logger.info("FSBS VALIDATION — FINAL ANALYSIS (Multi-Sidecar)")
     logger.info("=" * 70)
 
-    # ── 1. Collect sidecar state ──
-    logger.info("\n[1/5] Collecting sidecar metrics...")
-    metrics = fetch_sidecar_metrics()
-    arms_data = fetch_sidecar_arms()
-    decisions = fetch_sidecar_decisions(200)
-
-    if not metrics:
-        logger.error("Cannot connect to sidecar. Is the stack running?")
+    # ── 1. Collect metrics from ALL sidecars ──
+    logger.info("\n[1/5] Collecting metrics from ALL sidecars...")
+    all_metrics = fetch_all_sidecar_metrics()
+    all_arms = fetch_all_sidecar_arms()
+    
+    # Aggregate cluster-wide metrics
+    agg = aggregate_metrics(all_metrics)
+    if not agg:
+        logger.error("Cannot connect to any sidecars. Is the stack running?")
         return
 
-    sm = metrics.get('sampler', {})
-    sv = metrics.get('service', {})
+    logger.info(f"  Connected to {agg['num_sidecars_alive']}/{agg['num_sidecars_total']} sidecars")
 
     # ── 2. Fetch Jaeger traces ──
     logger.info("[2/5] Fetching traces from Jaeger...")
     all_traces = []
     for svc in ['frontend', 'checkoutservice', 'productcatalogservice',
                 'currencyservice', 'paymentservice']:
-        traces = fetch_jaeger_traces(service=svc, limit=200, lookback='1h')
+        traces = fetch_jaeger_traces(service=svc, limit=300, lookback='2h')
         all_traces.extend(traces)
 
     # Deduplicate
@@ -288,7 +340,7 @@ def run_validation():
     # ── 4. Simulate random sampling ──
     logger.info("[4/5] Simulating random sampling baseline...")
 
-    fsbs_sample_rate = sm.get('sample_rate', 0.5)
+    fsbs_sample_rate = agg['sample_rate']
 
     random_results = simulate_random_sampling(
         unique_traces,
@@ -309,24 +361,21 @@ def run_validation():
 
     report = []
     report.append("=" * 70)
-    report.append("           FSBS VALIDATION REPORT")
+    report.append("           FSBS VALIDATION REPORT (Multi-Sidecar)")
     report.append("=" * 70)
 
     # System overview
-    report.append("\n── SYSTEM STATUS ──")
-    report.append(f"  Uptime:            {sm.get('uptime_seconds', 0):.0f} seconds")
-    report.append(f"  Total spans in:    {sv.get('total_spans_in', 0)}")
-    report.append(f"  Total spans out:   {sv.get('total_spans_out', 0)}")
-    total_in = sv.get('total_spans_in', 1)
-    total_out = sv.get('total_spans_out', 0)
-    report.append(f"  Span pass rate:    {total_out/total_in:.1%}")
-    report.append(f"  Forward errors:    {sv.get('forward_errors', 0)}")
+    report.append("\n── CLUSTER STATUS ──")
+    report.append(f"  Sidecars alive:    {agg['num_sidecars_alive']}/{agg['num_sidecars_total']}")
+    report.append(f"  Total spans in:    {agg['total_spans_in']}")
+    report.append(f"  Total spans out:   {agg['total_spans_out']}")
+    report.append(f"  Span pass rate:    {agg['sample_rate']:.1%}")
 
     # Decision engine
-    report.append("\n── DECISION ENGINE ──")
-    thompson = sm.get('thompson_decisions', 0)
-    linucb = sm.get('linucb_decisions', 0)
-    forced = sm.get('forced_samples', 0)
+    report.append("\n── DECISION ENGINE (CLUSTER-WIDE) ──")
+    thompson = agg['thompson_decisions']
+    linucb = agg['linucb_decisions']
+    forced = agg['forced_samples']
     total_dec = thompson + linucb + forced
     if total_dec > 0:
         report.append(
@@ -341,13 +390,13 @@ def run_validation():
             f"  Forced (errors):   {forced} "
             f"({forced/total_dec:.1%})"
         )
-    report.append(f"  Active arms:       {sm.get('active_arms', 0)} / 256")
-    report.append(f"  Confident arms:    {sm.get('confident_arms', 0)} / 256")
+    report.append(f"  Active arms:       {agg['active_arms']} (across all sidecars)")
+    report.append(f"  Confident arms:    {agg['confident_arms']} (across all sidecars)")
 
     # Reward feedback
-    report.append("\n── REWARD FEEDBACK ──")
-    report.append(f"  Rewards received:  {sm.get('rewards_received', 0)}")
-    report.append(f"  Average reward:    {sm.get('avg_reward', 0):.4f}")
+    report.append("\n── REWARD FEEDBACK (CLUSTER-WIDE) ──")
+    report.append(f"  Rewards received:  {agg['rewards_received']}")
+    report.append(f"  Average reward:    {agg['avg_reward']:.4f}")
 
     # Trace classification
     report.append("\n── TRACES CAPTURED IN JAEGER ──")
@@ -369,14 +418,7 @@ def run_validation():
     report.append(f"  {'Metric':<30} {'FSBS':>10} {'Random':>10} {'Winner':>10}")
     report.append(f"  {'-'*30} {'-'*10} {'-'*10} {'-'*10}")
 
-    # Error capture: FSBS always captures 100% (force_sample_errors)
-    # Calculate actual error capture rate from Jaeger data
-    # Since FSBS force-samples errors, all error traces that were
-    # detected should appear in Jaeger
-     # FSBS force-samples all spans with error markers.
-    # Error traces without span-level error markers (e.g., business
-    # logic failures in gRPC) are captured through normal bandit
-    # sampling, not force-sampling.
+    # Error capture
     if forced > 0:
         fsbs_err_rate = 1.0
     elif fsbs_error_count > 0:
@@ -391,12 +433,10 @@ def run_validation():
     )
 
     # Slow trace capture
-    # FSBS preferentially samples slow traces via higher UCB scores
     fsbs_slow_rate = (
         fsbs_slow_count / total_traces if total_traces > 0 else 0
     )
     rand_slow_rate = random_results.get('avg_slow_capture', 0)
-    # Normalize: what fraction of slow traces did each capture
     slow_winner = "FSBS ✓" if fsbs_slow_rate >= rand_slow_rate else "Random"
     report.append(
         f"  {'Slow trace presence':<30} "
@@ -417,19 +457,20 @@ def run_validation():
     )
 
     # Volume reduction
-    volume_reduction = 1.0 - (total_out / total_in) if total_in > 0 else 0
+    volume_reduction = 1.0 - agg['sample_rate']
     report.append(
         f"\n  Volume reduction:  {volume_reduction:.1%} fewer spans sent to Jaeger"
     )
 
-    # Top learned arms
-    if arms_data and arms_data.get('arms'):
-        report.append("\n── TOP LEARNED ARMS ──")
+    # Top learned arms (from frontend sidecar as representative)
+    frontend_arms = all_arms.get('frontend')
+    if frontend_arms and frontend_arms.get('arms'):
+        report.append("\n── TOP LEARNED ARMS (Frontend Sidecar) ──")
         report.append(
             f"  {'Arm':>5} {'Obs':>6} {'Mean Reward':>12} "
             f"{'Confident':>10} {'Interpretation'}"
         )
-        for arm in arms_data['arms'][:8]:
+        for arm in frontend_arms['arms'][:8]:
             conf = "✓ LinUCB" if arm['confident'] else "  Thompson"
             mean = arm.get('thompson_mean', 0)
             if mean > 0.6:
@@ -462,14 +503,13 @@ def run_validation():
         )
     else:
         report.append(
-            "  ⟳ FSBS needs more training time. Run longer with "
-            "the reward service active."
+            "  ⟳ FSBS needs more training time or more diverse traffic patterns."
         )
 
     if linucb > 0:
         report.append(
-            f"  ★ LinUCB is ACTIVE with {sm.get('confident_arms', 0)} "
-            f"confident arms — the bandit is learning!"
+            f"  ★ LinUCB is ACTIVE with {agg['confident_arms']} "
+            f"confident arms — the cluster is learning!"
         )
     else:
         report.append(
@@ -483,7 +523,7 @@ def run_validation():
     full_report = "\n".join(report)
     print(full_report)
 
-    # Save to file — use script's own directory
+    # Save to file
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
     report_path = os.path.join(script_dir, "validation_report.txt")
@@ -494,8 +534,8 @@ def run_validation():
     # Also save raw data as JSON
     raw_data = {
         'timestamp': time.time(),
-        'sidecar_metrics': metrics,
-        'arms': arms_data,
+        'cluster_metrics': agg,
+        'all_sidecar_metrics': all_metrics,
         'trace_classifications': {
             cls: count for cls, count in class_counts.items()
         },

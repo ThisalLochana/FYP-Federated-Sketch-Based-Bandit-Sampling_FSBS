@@ -208,7 +208,7 @@ def analyze_trace(trace: Dict) -> Optional[Dict[str, Any]]:
         reward = 1.0
         reason = "error"
     elif total_duration_us > 500_000:
-        reward = 0.8
+        reward = 0.9
         reason = "very_slow"
     elif total_duration_us > 200_000:
         reward = 0.5

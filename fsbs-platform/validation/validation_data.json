@@ -1,108 +1,519 @@
 {
-  "timestamp": 1776253865.3038933,
-  "sidecar_metrics": {
-    "sampler": {
-      "service": "frontend",
-      "uptime_seconds": 681.0,
-      "total_spans": 3101,
-      "sampled_spans": 1565,
-      "dropped_spans": 1536,
-      "sample_rate": 0.5047,
-      "thompson_decisions": 0,
-      "linucb_decisions": 3071,
-      "forced_samples": 30,
-      "rewards_received": 674,
-      "avg_reward": 0.1478,
-      "active_arms": 5,
-      "confident_arms": 5,
-      "queue_size": 0,
-      "queue_dropped": 0,
-      "sketch_memory_bytes": 8192,
-      "bandit_memory_bytes": 38912,
-      "sketch_decay_factor": 0.9,
-      "sketch_decay_interval": 300.0,
-      "checkpoint": {
-        "checkpoint_dir": "/data/checkpoints",
-        "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
-        "saves_completed": 11,
-        "saves_failed": 0,
-        "last_save_time": 1776253844.2971923,
-        "last_save_size_bytes": 50208,
-        "restore_success": true,
-        "restore_age_seconds": 278.0,
-        "interval_seconds": 60.0
+  "timestamp": 1776266828.3787584,
+  "cluster_metrics": {
+    "total_spans_in": 83109,
+    "total_spans_out": 35003,
+    "sample_rate": 0.42116978907218233,
+    "thompson_decisions": 0,
+    "linucb_decisions": 13517,
+    "forced_samples": 14,
+    "rewards_received": 2877,
+    "avg_reward": 0.14270559610705594,
+    "active_arms": 55,
+    "confident_arms": 55,
+    "num_sidecars_alive": 11,
+    "num_sidecars_total": 11
+  },
+  "all_sidecar_metrics": {
+    "frontend": {
+      "sampler": {
+        "service": "frontend",
+        "uptime_seconds": 1631.4,
+        "total_spans": 4498,
+        "sampled_spans": 2816,
+        "dropped_spans": 1682,
+        "sample_rate": 0.6261,
+        "thompson_decisions": 0,
+        "linucb_decisions": 4491,
+        "forced_samples": 7,
+        "rewards_received": 1661,
+        "avg_reward": 0.1682,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266816.986449,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 501.7,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 326,
+        "total_spans_in": 45670,
+        "total_spans_out": 32651,
+        "spans_dropped": 13019,
+        "forward_errors": 0,
+        "trace_cache_size": 4498,
+        "trace_cache_hits": 41172,
+        "trace_cache_misses": 4498
       }
     },
-    "service": {
-      "total_export_calls": 136,
-      "total_spans_in": 31327,
-      "total_spans_out": 18074,
-      "spans_dropped": 13253,
-      "forward_errors": 0,
-      "trace_cache_size": 3101,
-      "trace_cache_hits": 28226,
-      "trace_cache_misses": 3101
+    "checkout": {
+      "sampler": {
+        "service": "checkoutservice",
+        "uptime_seconds": 1631.4,
+        "total_spans": 927,
+        "sampled_spans": 896,
+        "dropped_spans": 31,
+        "sample_rate": 0.9666,
+        "thompson_decisions": 0,
+        "linucb_decisions": 927,
+        "forced_samples": 0,
+        "rewards_received": 871,
+        "avg_reward": 0.1024,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266816.9838183,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 500.7,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 322,
+        "total_spans_in": 2090,
+        "total_spans_out": 1992,
+        "spans_dropped": 98,
+        "forward_errors": 0,
+        "trace_cache_size": 927,
+        "trace_cache_hits": 1163,
+        "trace_cache_misses": 927
+      }
+    },
+    "productcatalog": {
+      "sampler": {
+        "service": "productcatalogservice",
+        "uptime_seconds": 1631.5,
+        "total_spans": 4159,
+        "sampled_spans": 305,
+        "dropped_spans": 3854,
+        "sample_rate": 0.0733,
+        "thompson_decisions": 0,
+        "linucb_decisions": 4153,
+        "forced_samples": 6,
+        "rewards_received": 303,
+        "avg_reward": 0.1178,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266816.9837308,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 527.6,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 326,
+        "total_spans_in": 22393,
+        "total_spans_out": 305,
+        "spans_dropped": 22088,
+        "forward_errors": 0,
+        "trace_cache_size": 4159,
+        "trace_cache_hits": 18234,
+        "trace_cache_misses": 4159
+      }
+    },
+    "currency": {
+      "sampler": {
+        "service": "currencyservice",
+        "uptime_seconds": 1631.9,
+        "total_spans": 3807,
+        "sampled_spans": 2,
+        "dropped_spans": 3805,
+        "sample_rate": 0.0005,
+        "thompson_decisions": 0,
+        "linucb_decisions": 3807,
+        "forced_samples": 0,
+        "rewards_received": 2,
+        "avg_reward": 0.45,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266816.682193,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 527.3,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 12816,
+        "total_spans_in": 12816,
+        "total_spans_out": 13,
+        "spans_dropped": 12803,
+        "forward_errors": 0,
+        "trace_cache_size": 3807,
+        "trace_cache_hits": 9009,
+        "trace_cache_misses": 3807
+      }
+    },
+    "payment": {
+      "sampler": {
+        "service": "paymentservice",
+        "uptime_seconds": 1631.2,
+        "total_spans": 140,
+        "sampled_spans": 42,
+        "dropped_spans": 98,
+        "sample_rate": 0.3,
+        "thompson_decisions": 0,
+        "linucb_decisions": 139,
+        "forced_samples": 1,
+        "rewards_received": 40,
+        "avg_reward": 0.135,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266817.1327856,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 498.9,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 140,
+        "total_spans_in": 140,
+        "total_spans_out": 42,
+        "spans_dropped": 98,
+        "forward_errors": 0,
+        "trace_cache_size": 140,
+        "trace_cache_hits": 0,
+        "trace_cache_misses": 140
+      }
+    },
+    "shipping": {
+      "sampler": {
+        "service": "shippingservice",
+        "uptime_seconds": 1632.3,
+        "total_spans": 0,
+        "sampled_spans": 0,
+        "dropped_spans": 0,
+        "sample_rate": 0.0,
+        "thompson_decisions": 0,
+        "linucb_decisions": 0,
+        "forced_samples": 0,
+        "rewards_received": 0,
+        "avg_reward": 0.0,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266816.1123345,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 498.8,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 0,
+        "total_spans_in": 0,
+        "total_spans_out": 0,
+        "spans_dropped": 0,
+        "forward_errors": 0,
+        "trace_cache_size": 0,
+        "trace_cache_hits": 0,
+        "trace_cache_misses": 0
+      }
+    },
+    "email": {
+      "sampler": {
+        "service": "emailservice",
+        "uptime_seconds": 1631.4,
+        "total_spans": 0,
+        "sampled_spans": 0,
+        "dropped_spans": 0,
+        "sample_rate": 0.0,
+        "thompson_decisions": 0,
+        "linucb_decisions": 0,
+        "forced_samples": 0,
+        "rewards_received": 0,
+        "avg_reward": 0.0,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266816.9864404,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 497.7,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 0,
+        "total_spans_in": 0,
+        "total_spans_out": 0,
+        "spans_dropped": 0,
+        "forward_errors": 0,
+        "trace_cache_size": 0,
+        "trace_cache_hits": 0,
+        "trace_cache_misses": 0
+      }
+    },
+    "cart": {
+      "sampler": {
+        "service": "cartservice",
+        "uptime_seconds": 1632.2,
+        "total_spans": 0,
+        "sampled_spans": 0,
+        "dropped_spans": 0,
+        "sample_rate": 0.0,
+        "thompson_decisions": 0,
+        "linucb_decisions": 0,
+        "forced_samples": 0,
+        "rewards_received": 0,
+        "avg_reward": 0.0,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266816.114944,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 498.9,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 0,
+        "total_spans_in": 0,
+        "total_spans_out": 0,
+        "spans_dropped": 0,
+        "forward_errors": 0,
+        "trace_cache_size": 0,
+        "trace_cache_hits": 0,
+        "trace_cache_misses": 0
+      }
+    },
+    "recommendation": {
+      "sampler": {
+        "service": "recommendationservice",
+        "uptime_seconds": 1631.3,
+        "total_spans": 0,
+        "sampled_spans": 0,
+        "dropped_spans": 0,
+        "sample_rate": 0.0,
+        "thompson_decisions": 0,
+        "linucb_decisions": 0,
+        "forced_samples": 0,
+        "rewards_received": 0,
+        "avg_reward": 0.0,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266816.9838188,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 527.7,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 0,
+        "total_spans_in": 0,
+        "total_spans_out": 0,
+        "spans_dropped": 0,
+        "forward_errors": 0,
+        "trace_cache_size": 0,
+        "trace_cache_hits": 0,
+        "trace_cache_misses": 0
+      }
+    },
+    "ad": {
+      "sampler": {
+        "service": "adservice",
+        "uptime_seconds": 1631.7,
+        "total_spans": 0,
+        "sampled_spans": 0,
+        "dropped_spans": 0,
+        "sample_rate": 0.0,
+        "thompson_decisions": 0,
+        "linucb_decisions": 0,
+        "forced_samples": 0,
+        "rewards_received": 0,
+        "avg_reward": 0.0,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266816.6822228,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 500.4,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 0,
+        "total_spans_in": 0,
+        "total_spans_out": 0,
+        "spans_dropped": 0,
+        "forward_errors": 0,
+        "trace_cache_size": 0,
+        "trace_cache_hits": 0,
+        "trace_cache_misses": 0
+      }
+    },
+    "loadgen": {
+      "sampler": {
+        "service": "loadgenerator",
+        "uptime_seconds": 1632.3,
+        "total_spans": 0,
+        "sampled_spans": 0,
+        "dropped_spans": 0,
+        "sample_rate": 0.0,
+        "thompson_decisions": 0,
+        "linucb_decisions": 0,
+        "forced_samples": 0,
+        "rewards_received": 0,
+        "avg_reward": 0.0,
+        "active_arms": 5,
+        "confident_arms": 5,
+        "queue_size": 0,
+        "queue_dropped": 0,
+        "sketch_memory_bytes": 8192,
+        "bandit_memory_bytes": 38912,
+        "sketch_decay_factor": 0.9,
+        "sketch_decay_interval": 300.0,
+        "checkpoint": {
+          "checkpoint_dir": "/data/checkpoints",
+          "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
+          "saves_completed": 27,
+          "saves_failed": 0,
+          "last_save_time": 1776266816.112337,
+          "last_save_size_bytes": 50208,
+          "restore_success": true,
+          "restore_age_seconds": 500.9,
+          "interval_seconds": 60.0
+        }
+      },
+      "service": {
+        "total_export_calls": 0,
+        "total_spans_in": 0,
+        "total_spans_out": 0,
+        "spans_dropped": 0,
+        "forward_errors": 0,
+        "trace_cache_size": 0,
+        "trace_cache_hits": 0,
+        "trace_cache_misses": 0
+      }
     }
   },
-  "arms": {
-    "active_arms": 5,
-    "confident_arms": 5,
-    "arms": [
-      {
-        "arm_index": 0,
-        "n_observations": 15152,
-        "confident": true,
-        "thompson_mean": 0.176,
-        "thompson_alpha": 2666.5,
-        "thompson_beta": 12487.5
-      },
-      {
-        "arm_index": 16,
-        "n_observations": 356,
-        "confident": true,
-        "thompson_mean": 0.6304,
-        "thompson_alpha": 225.7,
-        "thompson_beta": 132.3
-      },
-      {
-        "arm_index": 48,
-        "n_observations": 101,
-        "confident": true,
-        "thompson_mean": 0.2078,
-        "thompson_alpha": 21.4,
-        "thompson_beta": 81.6
-      },
-      {
-        "arm_index": 64,
-        "n_observations": 48,
-        "confident": true,
-        "thompson_mean": 0.176,
-        "thompson_alpha": 8.8,
-        "thompson_beta": 41.2
-      },
-      {
-        "arm_index": 80,
-        "n_observations": 15,
-        "confident": true,
-        "thompson_mean": 0.2353,
-        "thompson_alpha": 4.0,
-        "thompson_beta": 13.0
-      }
-    ]
-  },
   "trace_classifications": {
-    "routine": 228,
-    "moderate": 6,
-    "error": 31
+    "routine": 867,
+    "very_slow": 43,
+    "error": 7,
+    "moderate": 5
   },
   "random_sampling_simulation": {
-    "target_sample_rate": 0.5047,
-    "avg_sample_count": 132.8,
-    "avg_actual_rate": 0.5009,
-    "avg_error_capture": 0.4984,
-    "avg_slow_capture": 1.0,
-    "avg_value_capture": 0.4998
+    "target_sample_rate": 0.42116978907218233,
+    "avg_sample_count": 388.6,
+    "avg_actual_rate": 0.4215,
+    "avg_error_capture": 0.425,
+    "avg_slow_capture": 0.4172,
+    "avg_value_capture": 0.4207
   },
-  "fsbs_sample_rate": 0.5047,
-  "volume_reduction": 0.4230535959396048
+  "fsbs_sample_rate": 0.42116978907218233,
+  "volume_reduction": 0.5788302109278176
 }

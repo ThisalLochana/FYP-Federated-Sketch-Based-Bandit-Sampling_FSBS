@@ -224,32 +224,37 @@ def run_error_burst(injector: AnomalyInjector, count: int = 10):
         time.sleep(0.1)
 
 def run_slow_traffic(injector: AnomalyInjector, count: int = 10):
-    """Generate intentionally slow requests."""
+    """Generate intentionally slow requests (>500ms traces)."""
     logger.info(f"Generating {count} slow requests...")
     for i in range(count):
-        # Browse many products in sequence to create long traces
-        for _ in range(5):
+        # Browse MANY products in sequence to create long traces
+        for _ in range(8):  # 8 products × ~50ms = ~400ms
             product = random.choice(PRODUCT_IDS)
             injector.browse_product(product)
-            time.sleep(0.5)  # Small delay between requests
+            time.sleep(0.08)  # Small delay to accumulate duration
         
         # Add multiple items to cart
-        for _ in range(3):
+        for _ in range(5):
             product = random.choice(PRODUCT_IDS)
-            injector.add_to_cart(product, quantity=random.randint(1, 5))
-            time.sleep(0.3)
+            injector.add_to_cart(product, quantity=random.randint(2, 5))
+            time.sleep(0.05)
         
-        time.sleep(1)
+        # Do multiple currency conversions
+        for _ in range(3):
+            injector.set_currency(random.choice(CURRENCIES))
+            time.sleep(0.05)
+        
+        time.sleep(0.5)  # Total: ~1 second per slow trace
 
 def run_mixed_traffic(injector: AnomalyInjector, duration_minutes: float = 5):
     """
     Run a realistic mix of traffic for the specified duration.
     
     Traffic mix:
-      - 50% routine browsing (low value)
-      - 20% checkout flows (high value) 
-      - 20% slow traces (high value)      ← UPDATED
-      - 10% error-prone requests (highest value)  ← UPDATED
+      - 40% routine browsing (low value)
+      - 25% checkout flows (high value)
+      - 25% slow traces (HIGH VALUE) ← UPDATED
+      - 10% error-prone requests (highest value)
     """
     end_time = time.time() + (duration_minutes * 60)
     cycle = 0
@@ -262,18 +267,18 @@ def run_mixed_traffic(injector: AnomalyInjector, duration_minutes: float = 5):
             f"({elapsed:.1f}/{duration_minutes:.1f} min) ──"
         )
 
-        # 50% routine browsing
-        run_normal_traffic(injector, count=10)  # ← REDUCED from 12
+        # 40% routine browsing
+        run_normal_traffic(injector, count=8)  # ← REDUCED
 
-        # 20% checkout flows
+        # 25% checkout flows
         run_checkout_traffic(injector, count=3)
 
-        # 20% slow traces (every cycle)  ← NEW
-        run_slow_traffic(injector, count=4)
+        # 25% slow traces ← NEW!
+        run_slow_traffic(injector, count=5)
 
-        # 10% errors (every other cycle to create bursts)
+        # 10% errors (every other cycle)
         if cycle % 2 == 0:
-            run_error_burst(injector, count=5)  # ← KEPT same
+            run_error_burst(injector, count=3)
 
         # Log stats
         s = injector.stats
