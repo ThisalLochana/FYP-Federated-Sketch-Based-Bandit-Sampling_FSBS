@@ -55,6 +55,21 @@ SIDECAR_URLS = [
     'http://fsbs-sidecar-adservice:8090',
     'http://fsbs-sidecar-loadgenerator:8091',
 ]
+# Map service names to their sidecar URLs
+SERVICE_TO_SIDECAR_URL = {
+    'frontend': 'http://fsbs-sidecar-frontend:8081',
+    'checkoutservice': 'http://fsbs-sidecar-checkoutservice:8082',
+    'productcatalogservice': 'http://fsbs-sidecar-productcatalogservice:8083',
+    'currencyservice': 'http://fsbs-sidecar-currencyservice:8084',
+    'paymentservice': 'http://fsbs-sidecar-paymentservice:8085',
+    'shippingservice': 'http://fsbs-sidecar-shippingservice:8086',
+    'emailservice': 'http://fsbs-sidecar-emailservice:8087',
+    'cartservice': 'http://fsbs-sidecar-cartservice:8088',
+    'recommendationservice': 'http://fsbs-sidecar-recommendationservice:8089',
+    'adservice': 'http://fsbs-sidecar-adservice:8090',
+    'loadgenerator': 'http://fsbs-sidecar-loadgenerator:8091',    
+}
+
 POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', '30'))
 TRACES_PER_POLL = int(os.environ.get('TRACES_PER_POLL', '30'))
 LOOKBACK_SECONDS = int(os.environ.get('LOOKBACK_SECONDS', '60'))
@@ -279,6 +294,29 @@ def send_reward(arm_index: int, context: list, reward: float) -> bool:
     # Consider it successful if at least one sidecar received it
     return success_count > 0
 
+def send_reward_to_one(sidecar_url: str, arm_index: int, context: list, reward: float) -> bool:
+    """
+    Send reward to ONE specific sidecar.
+    Used for selective routing based on which services participated in the trace.
+    """
+    try:
+        resp = requests.post(
+            f"{sidecar_url}/reward",
+            json={
+                'arm_index': arm_index,
+                'context': context,
+                'reward': reward,
+            },
+            timeout=2,
+        )
+        return resp.status_code == 200
+    except requests.exceptions.ConnectionError:
+        logger.debug(f"Cannot connect to {sidecar_url}")
+        return False
+    except Exception as e:
+        logger.debug(f"Failed to send reward to {sidecar_url}: {e}")
+        return False
+
 
 # ── Main loop ─────────────────────────────────────────────────
 
@@ -329,7 +367,7 @@ def main():
         reward_summary = {'error': 0, 'very_slow': 0, 'slow': 0,
                           'complex': 0, 'moderate': 0, 'routine': 0}
 
-        for trace in unique_traces:
+        """for trace in unique_traces:
             tid = trace.get('traceID', '')
             if tid in processed_traces:
                 continue
@@ -364,6 +402,67 @@ def main():
                     f"reason={analysis['reason']} "
                     f"svc={analysis['root_service']} "
                     f"dur={analysis['duration_us']/1000:.0f}ms"
+                )"""
+        
+        for trace in unique_traces:
+            tid = trace.get('traceID', '')
+            if tid in processed_traces:
+                continue
+
+            analysis = analyze_trace(trace)
+            if analysis is None:
+                continue
+
+            # SELECTIVE ROUTING: Send reward only to sidecars whose services
+            # participated in this trace
+            services_in_trace = analysis['services']  # e.g., ['frontend', 'checkout', 'payment']
+            rewards_sent = 0
+            
+            for entry in analysis['arm_entries']:
+                # Determine which service owns this arm
+                # The context vector is [latency/7, error, svc_id/255, novelty]
+                # So context[2] * 255 gives us the original service ID
+                svc_id = int(entry['context'][2] * 255)
+                
+                # Reverse lookup: find service name from ID
+                svc_name = None
+                for name, sid in SERVICE_CLUSTER_IDS.items():
+                    if sid == svc_id:
+                        svc_name = name
+                        break
+                
+                if svc_name is None:
+                    logger.warning(f"Unknown service ID {svc_id} in arm {entry['arm_index']}")
+                    continue
+                
+                # Only send reward if this service was actually in the trace
+                if svc_name in services_in_trace:
+                    sidecar_url = SERVICE_TO_SIDECAR_URL.get(svc_name)
+                    if sidecar_url:
+                        success = send_reward_to_one(
+                            sidecar_url,
+                            entry['arm_index'],
+                            entry['context'],
+                            analysis['reward']
+                        )
+                        if success:
+                            rewards_sent += 1
+                    else:
+                        logger.warning(f"No sidecar URL for service {svc_name}")
+
+            if rewards_sent > 0:
+                rewards_this_cycle += 1
+                total_rewards_sent += 1
+                processed_traces.add(tid)
+                reward_summary[analysis['reason']] = (
+                    reward_summary.get(analysis['reason'], 0) + 1
+                )
+
+                logger.debug(
+                    f"  Reward: {rewards_sent} sidecars, "
+                    f"services={services_in_trace}, "
+                    f"reward={analysis['reward']:.1f}, "
+                    f"reason={analysis['reason']}"
                 )
 
         # Evict old processed traces to prevent memory growth

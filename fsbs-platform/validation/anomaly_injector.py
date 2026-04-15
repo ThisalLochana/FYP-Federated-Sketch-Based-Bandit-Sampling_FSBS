@@ -223,15 +223,33 @@ def run_error_burst(injector: AnomalyInjector, count: int = 10):
         injector.set_currency(random.choice(CURRENCIES))
         time.sleep(0.1)
 
+def run_slow_traffic(injector: AnomalyInjector, count: int = 10):
+    """Generate intentionally slow requests."""
+    logger.info(f"Generating {count} slow requests...")
+    for i in range(count):
+        # Browse many products in sequence to create long traces
+        for _ in range(5):
+            product = random.choice(PRODUCT_IDS)
+            injector.browse_product(product)
+            time.sleep(0.5)  # Small delay between requests
+        
+        # Add multiple items to cart
+        for _ in range(3):
+            product = random.choice(PRODUCT_IDS)
+            injector.add_to_cart(product, quantity=random.randint(1, 5))
+            time.sleep(0.3)
+        
+        time.sleep(1)
 
 def run_mixed_traffic(injector: AnomalyInjector, duration_minutes: float = 5):
     """
     Run a realistic mix of traffic for the specified duration.
     
     Traffic mix:
-      - 60% routine browsing (low value)
-      - 25% checkout flows (high value) 
-      - 15% error-prone requests (highest value)
+      - 50% routine browsing (low value)
+      - 20% checkout flows (high value) 
+      - 20% slow traces (high value)      ← UPDATED
+      - 10% error-prone requests (highest value)  ← UPDATED
     """
     end_time = time.time() + (duration_minutes * 60)
     cycle = 0
@@ -244,15 +262,18 @@ def run_mixed_traffic(injector: AnomalyInjector, duration_minutes: float = 5):
             f"({elapsed:.1f}/{duration_minutes:.1f} min) ──"
         )
 
-        # 60% routine
-        run_normal_traffic(injector, count=12)
+        # 50% routine browsing
+        run_normal_traffic(injector, count=10)  # ← REDUCED from 12
 
-        # 25% checkout
+        # 20% checkout flows
         run_checkout_traffic(injector, count=3)
 
-        # 15% errors (every other cycle to create bursts)
+        # 20% slow traces (every cycle)  ← NEW
+        run_slow_traffic(injector, count=4)
+
+        # 10% errors (every other cycle to create bursts)
         if cycle % 2 == 0:
-            run_error_burst(injector, count=5)
+            run_error_burst(injector, count=5)  # ← KEPT same
 
         # Log stats
         s = injector.stats
@@ -267,7 +288,6 @@ def run_mixed_traffic(injector: AnomalyInjector, duration_minutes: float = 5):
 
     logger.info("Traffic generation complete!")
     logger.info(f"Final stats: {injector.stats}")
-
 
 def main():
     logger.info("=" * 60)

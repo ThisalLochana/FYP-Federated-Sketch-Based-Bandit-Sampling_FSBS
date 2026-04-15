@@ -132,52 +132,74 @@ class FSBSTraceService(trace_service_pb2_grpc.TraceServiceServicer):
     def _decide_span(self, span, svc_name: str) -> bool:
         trace_id = span.trace_id.hex() if span.trace_id else ''
 
-        # ── Error detection (check MULTIPLE indicators) ──
+        # ── COMPREHENSIVE ERROR DETECTION (gRPC + HTTP) ──
         is_error = False
 
-        # Check 1: OTLP status code
+        # Check 1: OTLP status code (HTTP services)
         if span.status.code == 2:
             is_error = True
 
-        # Check 2: Span attributes / tags
+        # Check 2-5: Span attributes (gRPC uses these!)
         if not is_error:
             try:
                 for kv in span.attributes:
                     key = kv.key
                     val = kv.value
+                    
+                    # gRPC status codes (1-16 are errors, 0 is OK)
+                    if key == 'rpc.grpc.status_code':
+                        code = val.int_value if val.HasField('int_value') else 0
+                        if code > 0:
+                            is_error = True
+                            break
+                    
                     # error=true tag
-                    if key == 'error' and val.bool_value is True:
-                        is_error = True
-                        break
-                    # otel.status_code=ERROR tag
-                    if key == 'otel.status_code' and val.string_value == 'ERROR':
-                        is_error = True
-                        break
-                    # HTTP 5xx status
-                    if key == 'http.status_code' and val.int_value >= 500:
-                        is_error = True
-                        break
-                    # gRPC error codes (codes 1-16 are errors)
-                    if key == 'rpc.grpc.status_code' and val.int_value > 0:
-                        is_error = True
-                        break
-            except Exception:
-                pass
+                    if key == 'error':
+                        if val.HasField('bool_value') and val.bool_value is True:
+                            is_error = True
+                            break
+                    
+                    # otel.status_code=ERROR
+                    if key == 'otel.status_code':
+                        if val.HasField('string_value') and val.string_value == 'ERROR':
+                            is_error = True
+                            break
+                    
+                    # HTTP 5xx errors
+                    if key == 'http.status_code':
+                        code = val.int_value if val.HasField('int_value') else 0
+                        if code >= 500:
+                            is_error = True
+                            break
+            except Exception as e:
+                logger.warning(f"Error checking span attributes: {e}")
         
-        # Force-sample any error span
-        if is_error:
-            self.trace_cache.put(trace_id, True)
-            logger.debug(f"Force-sampling error span: trace={trace_id[:16]} svc={svc_name}")
-            return True
+        # Check 6: Exception events (gRPC services emit these)
+        if not is_error and hasattr(span, 'events') and span.events:
+            for event in span.events:
+                event_name = event.name.lower()
+                if 'exception' in event_name or 'error' in event_name:
+                    is_error = True
+                    break
 
         # Check trace cache for existing decision
         cached = self.trace_cache.get(trace_id)
         if cached is not None:
             return cached
 
-        # Normal bandit decision
+        # Build span_data dict
         span_data = self._span_to_dict(span, svc_name, trace_id)
+        
+        # ── KEY FIX: Pass is_error flag to sampler ──
+        span_data['is_error'] = is_error  # ← ADD THIS LINE
+        
+        # Let sampler make the decision (it will force-sample errors)
         decision = self.sampler.decide(span_data)
+        
+        # Log if it was force-sampled
+        if is_error and decision.should_sample:
+            logger.info(f" FORCE SAMPLE ERROR: trace={trace_id[:16]} svc={svc_name}")
+        
         self.trace_cache.put(trace_id, decision.should_sample)
         return decision.should_sample
 

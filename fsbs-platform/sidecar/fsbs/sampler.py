@@ -152,9 +152,10 @@ class FSBSSampler:
         novelty = self.sketch.novelty_score(fv.packed_key)
         fv.novelty_score = novelty
 
-        # Step 3: Force-sample errors
-        if self.force_sample_errors and fv.has_error:
-            self._forced_samples += 1
+        # Step 3: Force-sample errors (check span_data for is_error flag)
+        is_error = span_data.get('is_error', False) or fv.has_error  # ← ADD THIS
+        if self.force_sample_errors and is_error:
+            self._forced_samples += 1  # ← This counter now increments!
             self._sampled_spans += 1
             decision = SamplingDecision(
                 should_sample=True,

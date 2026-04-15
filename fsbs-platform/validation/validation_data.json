@@ -1,18 +1,18 @@
 {
-  "timestamp": 1775156848.3861806,
+  "timestamp": 1776253865.3038933,
   "sidecar_metrics": {
     "sampler": {
-      "service": "fsbs-sidecar",
-      "uptime_seconds": 431.0,
-      "total_spans": 1363,
-      "sampled_spans": 9,
-      "dropped_spans": 1354,
-      "sample_rate": 0.0066,
+      "service": "frontend",
+      "uptime_seconds": 681.0,
+      "total_spans": 3101,
+      "sampled_spans": 1565,
+      "dropped_spans": 1536,
+      "sample_rate": 0.5047,
       "thompson_decisions": 0,
-      "linucb_decisions": 1363,
-      "forced_samples": 0,
-      "rewards_received": 36,
-      "avg_reward": 0.5917,
+      "linucb_decisions": 3071,
+      "forced_samples": 30,
+      "rewards_received": 674,
+      "avg_reward": 0.1478,
       "active_arms": 5,
       "confident_arms": 5,
       "queue_size": 0,
@@ -24,24 +24,24 @@
       "checkpoint": {
         "checkpoint_dir": "/data/checkpoints",
         "checkpoint_file": "/data/checkpoints/fsbs_state.ckpt",
-        "saves_completed": 7,
+        "saves_completed": 11,
         "saves_failed": 0,
-        "last_save_time": 1775156837.4694214,
+        "last_save_time": 1776253844.2971923,
         "last_save_size_bytes": 50208,
         "restore_success": true,
-        "restore_age_seconds": 68835.7,
+        "restore_age_seconds": 278.0,
         "interval_seconds": 60.0
       }
     },
     "service": {
-      "total_export_calls": 3202,
-      "total_spans_in": 19436,
-      "total_spans_out": 167,
-      "spans_dropped": 19269,
+      "total_export_calls": 136,
+      "total_spans_in": 31327,
+      "total_spans_out": 18074,
+      "spans_dropped": 13253,
       "forward_errors": 0,
-      "trace_cache_size": 1365,
-      "trace_cache_hits": 18059,
-      "trace_cache_misses": 1363
+      "trace_cache_size": 3101,
+      "trace_cache_hits": 28226,
+      "trace_cache_misses": 3101
     }
   },
   "arms": {
@@ -50,60 +50,59 @@
     "arms": [
       {
         "arm_index": 0,
-        "n_observations": 460,
+        "n_observations": 15152,
         "confident": true,
-        "thompson_mean": 0.2203,
-        "thompson_alpha": 101.8,
-        "thompson_beta": 360.2
+        "thompson_mean": 0.176,
+        "thompson_alpha": 2666.5,
+        "thompson_beta": 12487.5
       },
       {
         "arm_index": 16,
-        "n_observations": 197,
+        "n_observations": 356,
         "confident": true,
-        "thompson_mean": 0.3643,
-        "thompson_alpha": 72.5,
-        "thompson_beta": 126.5
-      },
-      {
-        "arm_index": 64,
-        "n_observations": 170,
-        "confident": true,
-        "thompson_mean": 0.3209,
-        "thompson_alpha": 55.2,
-        "thompson_beta": 116.8
+        "thompson_mean": 0.6304,
+        "thompson_alpha": 225.7,
+        "thompson_beta": 132.3
       },
       {
         "arm_index": 48,
-        "n_observations": 148,
+        "n_observations": 101,
         "confident": true,
-        "thompson_mean": 0.3747,
-        "thompson_alpha": 56.2,
-        "thompson_beta": 93.8
+        "thompson_mean": 0.2078,
+        "thompson_alpha": 21.4,
+        "thompson_beta": 81.6
+      },
+      {
+        "arm_index": 64,
+        "n_observations": 48,
+        "confident": true,
+        "thompson_mean": 0.176,
+        "thompson_alpha": 8.8,
+        "thompson_beta": 41.2
       },
       {
         "arm_index": 80,
-        "n_observations": 122,
+        "n_observations": 15,
         "confident": true,
-        "thompson_mean": 0.3992,
-        "thompson_alpha": 49.5,
-        "thompson_beta": 74.5
+        "thompson_mean": 0.2353,
+        "thompson_alpha": 4.0,
+        "thompson_beta": 13.0
       }
     ]
   },
   "trace_classifications": {
-    "routine": 4,
-    "very_slow": 1,
-    "error": 6,
-    "complex": 3
+    "routine": 228,
+    "moderate": 6,
+    "error": 31
   },
   "random_sampling_simulation": {
-    "target_sample_rate": 0.0066,
-    "avg_sample_count": 0.1,
-    "avg_actual_rate": 0.0075,
-    "avg_error_capture": 0.0067,
-    "avg_slow_capture": 0.005,
-    "avg_value_capture": 0.007
+    "target_sample_rate": 0.5047,
+    "avg_sample_count": 132.8,
+    "avg_actual_rate": 0.5009,
+    "avg_error_capture": 0.4984,
+    "avg_slow_capture": 1.0,
+    "avg_value_capture": 0.4998
   },
-  "fsbs_sample_rate": 0.0066,
-  "volume_reduction": 0.9914076970570076
+  "fsbs_sample_rate": 0.5047,
+  "volume_reduction": 0.4230535959396048
 }
