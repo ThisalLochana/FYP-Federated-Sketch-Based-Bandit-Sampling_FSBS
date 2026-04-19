@@ -60,6 +60,19 @@ class FeatureVector:
     [7]      has_error         (1 bit)
     [6..4]   latency_bucket    (3 bits)
     [3..0]   reserved / novelty_bucket (4 bits, added later)
+    
+    ARM INDEX LAYOUT (FIXED - latency-aware arms):
+    [7..5]   latency_bucket (3 bits)                    — 8 latency ranges
+    [4..2]   service_id (bottom 3 bits)                 — 8 services (mod 8)
+    [1..0]   topology (top 2 bits of topo_hash_prefix)  — 4 topology patterns
+    Total: 8 × 8 × 4 = 256 arms
+
+    Example mappings:
+        Frontend (svc=0), fast (lat=0), topo=0     → Arm 0
+        Frontend (svc=0), moderate (lat=2), topo=0 → Arm 64
+        Frontend (svc=0), slow (lat=6), topo=0     → Arm 192
+        Frontend (svc=0), very slow (lat=7), topo=0 → Arm 224
+        Cart (svc=2), fast (lat=0), topo=0         → Arm 8
     """
     
     __slots__ = [
@@ -81,7 +94,7 @@ class FeatureVector:
         self.topo_hash_prefix = topo_hash_prefix & 0xFFFF   # 16 bits
         self.novelty_score = novelty_score                    # float [0,1]
         
-        # Pack into 32-bit key for sketch lookup
+        # Pack into 32-bit key for sketch lookup (unchanged)
         self.packed_key = (
             (self.topo_hash_prefix << 16) |
             (self.svc_cluster_id << 8) |
@@ -89,12 +102,17 @@ class FeatureVector:
             (self.latency_bucket << 4)
         )
         
-        # Arm index for the bandit (8-bit svc_cluster + top 4 bits of topo)
-        # = 256 possible arms maximum
+        # ── NEW ARM INDEX COMPUTATION (FIXED) ──
+        # Distribute bits to maximize diversity:
+        # [7..5] latency_bucket (3 bits)        = 8 latency ranges
+        # [4..2] service (bottom 3 bits)        = 8 services (mod 8)
+        # [1..0] topology (top 2 bits of hash)  = 4 topology patterns
         self.arm_index = (
-            (self.svc_cluster_id << 4) | (self.topo_hash_prefix >> 12)
-        ) & 0xFF  # clamp to 256 arms
-    
+            (self.latency_bucket << 5) |          # Latency in top 3 bits
+            ((self.svc_cluster_id & 0x07) << 2) | # Service (bottom 3 bits)
+            (self.topo_hash_prefix >> 14)         # Topology (top 2 bits)
+        ) & 0xFF
+            
     def to_bandit_context(self) -> list:
         """
         Convert to the 4-element float vector used by LinUCB.

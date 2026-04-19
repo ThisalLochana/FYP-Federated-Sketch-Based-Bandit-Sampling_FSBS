@@ -12,13 +12,16 @@ import time
 import tempfile
 import os
 import shutil
+import logging
 
 from fsbs.count_min_sketch import CountMinSketch
-from fsbs.feature_extractor import FeatureExtractor, FeatureVector
+from fsbs.feature_extractor import FeatureExtractor, FeatureVector, LATENCY_BUCKETS_US 
 from fsbs.linucb import LinUCBBandit, LinUCBArm
 from fsbs.thompson import ThompsonSampler
 from fsbs.mpsc_queue import MPSCQueue, SamplingRecord
 from fsbs.sampler import FSBSSampler
+
+logger = logging.getLogger(__name__)
 
 
 class TestCountMinSketch:
@@ -252,15 +255,82 @@ class TestFeatureExtractor:
     def test_arm_index_in_range(self):
         """Arm index should be 0–255."""
         extractor = FeatureExtractor("frontend")
+        
+        # Test different services and latencies
         for svc in ['frontend', 'checkoutservice', 'paymentservice', 'adservice']:
-            fv = extractor.extract({
-                'service_name': svc,
-                'duration_us': 1000,
-                'status_code': 0,
-                'parent_services': [],
-                'attributes': {},
-            })
-            assert 0 <= fv.arm_index <= 255
+            for latency_bucket in [0, 2, 5, 7]:  # Test different latency buckets
+                # Generate a duration_us that falls into this bucket
+                if latency_bucket == 0:
+                    duration_us = 500  # < 1ms
+                elif latency_bucket == 1:
+                    duration_us = 3_000  # 3ms (between 1-5ms)
+                elif latency_bucket == 2:
+                    duration_us = 10_000  # 10ms (between 5-20ms)
+                elif latency_bucket == 3:
+                    duration_us = 30_000  # 30ms (between 20-50ms)
+                elif latency_bucket == 4:
+                    duration_us = 100_000  # 100ms (between 50-200ms)
+                elif latency_bucket == 5:
+                    duration_us = 300_000  # 300ms (between 200-500ms)
+                elif latency_bucket == 6:
+                    duration_us = 1_000_000  # 1 second (between 500ms-2s)
+                else:  # latency_bucket == 7
+                    duration_us = 5_000_000  # 5 seconds (> 2s)
+                
+                fv = extractor.extract({
+                    'service_name': svc,
+                    'duration_us': duration_us,
+                    'status_code': 0,
+                    'parent_services': [],
+                    'attributes': {},
+                })
+                
+                # Verify arm index is in valid range
+                assert 0 <= fv.arm_index <= 255, (
+                    f"Arm index {fv.arm_index} out of range for "
+                    f"{svc}, latency_bucket={latency_bucket}"
+                )
+                
+                # Verify the latency bucket was computed correctly
+                assert fv.latency_bucket == latency_bucket, (
+                    f"Expected latency_bucket={latency_bucket}, "
+                    f"got {fv.latency_bucket} for duration={duration_us}us"
+                )
+    
+    def test_latency_affects_arm_index(self):
+        """Different latencies should produce different arm indices."""
+        extractor = FeatureExtractor("frontend")
+        
+        # Fast trace (latency_bucket=0)
+        fv_fast = extractor.extract({
+            'service_name': 'frontend',
+            'duration_us': 500,  # < 1ms
+            'status_code': 0,
+            'parent_services': [],
+            'attributes': {},
+        })
+        
+        # Slow trace (latency_bucket=7)
+        fv_slow = extractor.extract({
+            'service_name': 'frontend',
+            'duration_us': 3_000_000,  # 3 seconds
+            'status_code': 0,
+            'parent_services': [],
+            'attributes': {},
+        })
+        
+        # They should have DIFFERENT arm indices
+        assert fv_fast.arm_index != fv_slow.arm_index, (
+            f"Fast and slow traces should use different arms! "
+            f"fast={fv_fast.arm_index}, slow={fv_slow.arm_index}"
+        )
+        
+        # Verify the latency buckets are different
+        assert fv_fast.latency_bucket == 0
+        assert fv_slow.latency_bucket == 7
+        
+        logger.info(f"✓ Fast trace → Arm {fv_fast.arm_index}")
+        logger.info(f"✓ Slow trace → Arm {fv_slow.arm_index}")
 
 
 class TestLinUCB:
@@ -966,21 +1036,40 @@ class TestCheckpointManager:
             )
 
             # Make some decisions and send rewards
-            for i in range(20):
+            # Use a consistent duration_us to ensure we know which arm will be used
+            test_duration_us = 5000  # 5ms → latency_bucket=1
+            
+            # Extract first decision to get the actual arm_index
+            decision = sampler.decide({
+                'trace_id': 'trace_0',
+                'service_name': 'frontend',
+                'duration_us': test_duration_us,
+                'status_code': 0,
+                'parent_services': [],
+                'attributes': {},
+            })
+            
+            # Store the arm index that was actually used
+            actual_arm_index = decision.arm_index
+            
+            # Make more decisions with same pattern
+            for i in range(1, 20):
                 sampler.decide({
                     'trace_id': f'trace_{i}',
                     'service_name': 'frontend',
-                    'duration_us': 5000,
+                    'duration_us': test_duration_us,
                     'status_code': 0,
                     'parent_services': [],
                     'attributes': {},
                 })
 
-            context = [0.5, 0.0, 0.0, 0.8]
+            # Send rewards to the ACTUAL arm that was used
+            context = decision.feature_vector.to_bandit_context()
             for _ in range(15):
-                sampler.process_reward(0, context, 0.7)
+                sampler.process_reward(actual_arm_index, context, 0.7)
 
-            assert sampler.bandit.arms[0].n == 15
+            # Verify the arm received the rewards
+            assert sampler.bandit.arms[actual_arm_index].n == 15
 
             # Manually trigger checkpoint save
             sampler.checkpoint_mgr.save(
@@ -998,19 +1087,22 @@ class TestCheckpointManager:
             )
 
             # Verify state was restored
-            assert sampler2.bandit.arms[0].n == 15
-            assert sampler2.bandit.is_confident(0) is True
+            assert sampler2.bandit.arms[actual_arm_index].n == 15
+            assert sampler2.bandit.is_confident(actual_arm_index) is True
 
-            # New decisions should use LinUCB (not Thompson)
-            decision = sampler2.decide({
+            # New decisions should use LinUCB (not Thompson) for this arm
+            decision2 = sampler2.decide({
                 'trace_id': 'recovery_test',
                 'service_name': 'frontend',
-                'duration_us': 5000,
+                'duration_us': test_duration_us,  # Same duration → same arm
                 'status_code': 0,
                 'parent_services': [],
                 'attributes': {},
             })
-            assert decision.method == 'linucb'
+            
+            # Verify it used the same arm and LinUCB method
+            assert decision2.arm_index == actual_arm_index
+            assert decision2.method == 'linucb'
 
             sampler2.shutdown()
         finally:

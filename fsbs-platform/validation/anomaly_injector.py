@@ -311,13 +311,13 @@ def main():
 
     injector = AnomalyInjector()
 
-    logger.info("Starting 5-minute mixed traffic generation...")
+    logger.info("Starting 10-minute mixed traffic generation...")
     logger.info("  60% routine browsing")
     logger.info("  25% checkout flows")
     logger.info("  15% error-prone requests")
     logger.info("")
 
-    run_mixed_traffic(injector, duration_minutes=5)
+    run_mixed_traffic(injector, duration_minutes=10)
 
 
 if __name__ == '__main__':

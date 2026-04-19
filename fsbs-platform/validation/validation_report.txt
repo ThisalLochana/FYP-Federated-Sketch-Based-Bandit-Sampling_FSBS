@@ -4,52 +4,56 @@
 
 ── CLUSTER STATUS ──
   Sidecars alive:    11/11
-  Total spans in:    83109
-  Total spans out:   35003
-  Span pass rate:    42.1%
+  Total spans in:    1161109
+  Total spans out:   4489
+  Span pass rate:    0.4%
 
 ── DECISION ENGINE (CLUSTER-WIDE) ──
-  Thompson:          0 (0.0%)
-  LinUCB:            13517 (99.9%)
-  Forced (errors):   14 (0.1%)
-  Active arms:       55 (across all sidecars)
-  Confident arms:    55 (across all sidecars)
+  Thompson:          58660 (31.0%)
+  LinUCB:            130196 (68.9%)
+  Forced (errors):   150 (0.1%)
+  Active arms:       81 (across all sidecars)
+  Confident arms:    48 (across all sidecars)
 
 ── REWARD FEEDBACK (CLUSTER-WIDE) ──
-  Rewards received:  2877
-  Average reward:    0.1427
+  Rewards received:  214
+  Average reward:    0.6005
 
 ── TRACES CAPTURED IN JAEGER ──
-  Total unique traces: 922
-    error       :     7  (  0.8%)
-    very_slow   :    43  (  4.7%)
+  Total unique traces: 457
+    error       :    76  ( 16.6%)
+    very_slow   :     1  (  0.2%)
     slow        :     0  (  0.0%)
     complex     :     0  (  0.0%)
-    moderate    :     5  (  0.5%)
-    routine     :   867  ( 94.0%)
+    moderate    :     3  (  0.7%)
+    routine     :   377  ( 82.5%)
 
 ── FSBS vs RANDOM SAMPLING COMPARISON ──
-  FSBS effective sample rate:    42.1%
-  Random target sample rate:     42.1%
+  FSBS effective sample rate:    0.4%
+  Random target sample rate:     0.4%
 
   Metric                               FSBS     Random     Winner
   ------------------------------ ---------- ---------- ----------
-  Error capture rate                100.0%     42.5%     FSBS ✓
-  Slow trace presence                 4.7%     41.7%     Random
-  Avg value per trace                0.140     0.421     Random
+  Error capture rate                100.0%      0.4%     FSBS ✓
+  Slow trace presence                 0.2%      0.0%     FSBS ✓
+  Avg value per trace                0.252     0.004     FSBS ✓
 
-  Volume reduction:  57.9% fewer spans sent to Jaeger
+  Volume reduction:  99.6% fewer spans sent to Jaeger
 
 ── TOP LEARNED ARMS (Frontend Sidecar) ──
     Arm    Obs  Mean Reward  Confident Interpretation
-      0  21646        0.168   ✓ LinUCB ← low value (routine)
-     16    356        0.630   ✓ LinUCB ← HIGH VALUE (errors/slow)
-     48    101        0.208   ✓ LinUCB ← low value (routine)
-     64     48        0.176   ✓ LinUCB ← low value (routine)
-     80     15        0.235   ✓ LinUCB ← low value (routine)
+     67  10194        0.101   ✓ LinUCB ← low value (routine)
+     64   7609        0.102   ✓ LinUCB ← low value (routine)
+     35   5330        0.100   ✓ LinUCB ← low value (routine)
+      3   3938        0.102   ✓ LinUCB ← low value (routine)
+     99    444        0.102   ✓ LinUCB ← low value (routine)
+     66    413        0.126   ✓ LinUCB ← low value (routine)
+     34    211        0.184   ✓ LinUCB ← low value (routine)
+     96    119        0.119   ✓ LinUCB ← low value (routine)
 
 ── CONCLUSION ──
-  ⟳ FSBS needs more training time or more diverse traffic patterns.
-  ★ LinUCB is ACTIVE with 55 confident arms — the cluster is learning!
+  ★ FSBS OUTPERFORMS random sampling on 3/3 metrics
+  ★ FSBS captures MORE valuable traces while sending 100% FEWER spans
+  ★ LinUCB is ACTIVE with 48 confident arms — the cluster is learning!
 
 ======================================================================

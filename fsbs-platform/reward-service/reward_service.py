@@ -156,17 +156,6 @@ def fetch_traces(service: str = 'frontend') -> List[Dict]:
 def analyze_trace(trace: Dict) -> Optional[Dict[str, Any]]:
     """
     Analyze a Jaeger trace and compute a reward signal.
-
-    Reward rules:
-      error trace             → 1.0  (most valuable for debugging)
-      very slow (>500ms)      → 0.8  (performance issues)
-      slow (>200ms)           → 0.5  (worth investigating)
-      complex (≥4 services)   → 0.4  (complex interactions)
-      moderate (>50ms)        → 0.2  (some value)
-      fast routine            → 0.1  (low debugging value)
-
-    Returns dict with arm_index, context, reward, and metadata.
-    Returns None if trace is unparseable.
     """
     spans = trace.get('spans', [])
     processes = trace.get('processes', {})
@@ -177,28 +166,42 @@ def analyze_trace(trace: Dict) -> Optional[Dict[str, Any]]:
     # ── Find root span (longest duration) ──
     root_span = max(spans, key=lambda s: s.get('duration', 0))
     total_duration_us = root_span.get('duration', 0)
+    duration_ms = total_duration_us / 1000.0
+
+    # Get root service name for the return dict
+    root_pid = root_span.get('processID', '')
+    root_proc = processes.get(root_pid, {})
+    root_svc = root_proc.get('serviceName', 'unknown')
 
     # ── Check for errors across all spans ──
     has_error = False
+    error_count = 0
     for span in spans:
         for tag in span.get('tags', []):
-            key = tag.get('key', '')
-            value = tag.get('value')
-            if key == 'error' and value is True:
+            k, v = tag.get('key', ''), tag.get('value')
+            if k == 'error' and v is True:
                 has_error = True
-            if key == 'otel.status_code' and value == 'ERROR':
+                error_count += 1
+            if k == 'otel.status_code' and v == 'ERROR':
                 has_error = True
-            if key == 'http.status_code' and isinstance(value, int) and value >= 500:
+                error_count += 1
+            if k == 'http.status_code' and isinstance(v, int) and v >= 500:
                 has_error = True
+                error_count += 1
 
-    # ── Identify services involved ──
-    services = set()
+    # ── Identify services involved and their MAX duration in this trace ──
+    service_durations = {}
     for span in spans:
         pid = span.get('processID', '')
         proc = processes.get(pid, {})
         svc = proc.get('serviceName', 'unknown')
         if svc != 'unknown':
-            services.add(svc)
+            dur = span.get('duration', 0)
+            # A service might have multiple spans; keep its longest one
+            if svc not in service_durations or dur > service_durations[svc]:
+                service_durations[svc] = dur
+
+    services = set(service_durations.keys())
 
     if not services:
         return None
@@ -207,54 +210,56 @@ def analyze_trace(trace: Dict) -> Optional[Dict[str, Any]]:
     if has_error:
         reward = 1.0
         reason = "error"
-    elif total_duration_us > 500_000:
+    elif duration_ms > 2000:  # > 2 seconds (extreme slow)
         reward = 0.9
+        reason = "extreme_slow"
+    elif duration_ms > 500:  # > 500ms (very slow)
+        reward = 0.8
         reason = "very_slow"
-    elif total_duration_us > 200_000:
+    elif duration_ms > 200:  # > 200ms (slow)
         reward = 0.5
         reason = "slow"
     elif len(services) >= 4:
         reward = 0.4
         reason = "complex"
-    elif total_duration_us > 50_000:
+    elif duration_ms > 50:  # > 50ms (moderate)
         reward = 0.2
         reason = "moderate"
     else:
-        reward = 0.1
+        reward = 0.0  # Keep this at 0.0 to punish routine traces
         reason = "routine"
 
-    # ── Compute arm index (must match sidecar's computation) ──
-    # The sidecar always has parent_services=[] → topo_hash=0
-    # We must use the SAME arm index or rewards go to wrong arms
-    root_pid = root_span.get('processID', '')
-    root_proc = processes.get(root_pid, {})
-    root_svc = root_proc.get('serviceName', 'unknown')
-    svc_id = SERVICE_CLUSTER_IDS.get(root_svc, 255)
-
-    # Match sidecar: topo_hash=0 since sidecar has no parent info
-    arm_index = (svc_id << 4) & 0xFF
-
-    # ── Compute context vector (same as sidecar) ──
-    latency_bucket = compute_latency_bucket(total_duration_us)
-    context = [
-        latency_bucket / 7.0,
-        1.0 if has_error else 0.0,
-        svc_id / 255.0,
-        0.5,  # novelty not available from Jaeger, use neutral value
-    ]
-
-    # Build per-service arm entries so ALL services in the trace
-    # receive the reward — not just the root service
+    # ── Build per-service arm entries (EXACT MATCH TO SIDECAR) ──
     arm_entries = []
     for svc in services:
         svc_id = SERVICE_CLUSTER_IDS.get(svc, 255)
-        svc_arm = (svc_id << 4) & 0xFF
+        
+        # MATCH LATENCY: Use the specific service's duration
+        svc_dur_us = service_durations.get(svc, 0)
+        svc_latency_bucket = 7
+        for i, boundary in enumerate([1_000, 5_000, 20_000, 50_000, 200_000, 500_000, 2_000_000]):
+            if svc_dur_us < boundary:
+                svc_latency_bucket = i
+                break
+                
+        # MATCH TOPOLOGY: Always 0 because sidecar parent_services is []
+        topo_hash = 0
+
+        # Exact bitwise match to feature_extractor.py
+        svc_arm = (
+            (svc_latency_bucket << 5) |
+            ((svc_id & 0x07) << 2) |
+            (topo_hash >> 14)
+        ) & 0xFF
+
+        # Exact match to to_bandit_context()
         svc_context = [
-            latency_bucket / 7.0,
+            svc_latency_bucket / 7.0,
             1.0 if has_error else 0.0,
             svc_id / 255.0,
-            0.5,
+            0.5,  # novelty not available from Jaeger
         ]
+
         arm_entries.append({
             'arm_index': svc_arm,
             'context': svc_context,

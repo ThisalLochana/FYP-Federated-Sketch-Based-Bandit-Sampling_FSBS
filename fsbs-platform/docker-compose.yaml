@@ -2,7 +2,7 @@
 # Microservices → FSBS Sidecar → OTel Collector → Jaeger
 
 # Define common values
-x-fsbs-config: &default-threshold "0.05"
+x-fsbs-config: &default-threshold "0.5"
 services:
 
   # ============================================================
@@ -552,8 +552,8 @@ services:
     restart: unless-stopped
     environment:
       JAEGER_URL: "http://jaeger:16686"
-      POLL_INTERVAL: "30"
-      TRACES_PER_POLL: "30"
+      POLL_INTERVAL: "10"       # Drop from 30 to 10 seconds
+      TRACES_PER_POLL: "200"    # Jump from 30 to 200 traces
       LOOKBACK_SECONDS: "60"
     depends_on:
       - jaeger
